@@ -1,12 +1,18 @@
-# RasPico2 Rom2ROMEmuBR
+# Pico2RomROMEmuBR
 
-このプロジェクトは Raspberry Pi Pico 用の ROM エミュレータです。
+このプロジェクトは Super AKI-80用の Raspberry Pi Pico2を使用したROMエミュレータです。
 
 ## 構成
 - ソースコード・ビルド関連ファイルは `SRC` フォルダにまとめています。
 - `rom_basic_const.c` などの ROM-BASIC 部分は [saki80basic](https://vintagechips.wordpress.com/2025/04/24/saki80basic/) 由来です。
   - 元のBASICサブセットは Grant Searle 氏が作成したものであり、Super AKI-80用に @vintagechip（電脳伝説）さんが移植・改良されています。
   - 詳細は各々のライセンスを参照してください。
+
+## 回路図・資料
+- ![Pico2ROMEmuBR_img](./Pico2ROMEmuBR_img.jpg)
+  - 上記は実装例画像です。
+- [Pico2ROMEmuBR_sch.pdf](./Pico2ROMEmuBR_sch.pdf)
+  - 上記PDFは回路図です。PDFビューアでご覧ください。
 
 ## ライセンス
 - 本プロジェクトのソースコードは MIT ライセンスです。
