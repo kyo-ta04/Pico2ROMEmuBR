@@ -1,0 +1,32 @@
+; rom_emu.pio 
+.program oe_address_control
+.wrap_target
+loop1:
+    wait 0 gpio 27        ; 1: CS有効待ち
+    jmp pin loop1         ; 2: OE無効なら loop1 へ
+    in pins, 13           ; 3: GP10-22(A0-A12) 13ピン読込
+    push                  ; 4: アドレスをプッシュ
+    pull                  ; 5: データをプル
+    mov pindirs, ~null    ; 6: GP0-7を出力モード
+    out pins, 8           ; 7: データ出力
+    wait 1 gpio 26        ; 8: OE無効待ち
+    mov pindirs, null     ; 9: GP0-7を入力モード
+.wrap
+
+.program clk_out            ; クロック 1/2の周波数を出力 (GP27)
+.wrap_target
+    set pins, 1   ; Turn on
+    set pins, 0   ; Turn off
+.wrap
+
+.program reset_out          ; リセット 指定時間(ms)High出力 (GP25)
+    set pins, 1
+.wrap_target
+    pull
+    mov x,osr
+    set pins, 1             ; Reset ON (Turn High)
+loop:
+    nop [1]
+    jmp x-- loop [7]
+    set pins, 0             ; Reset OFF (Turn Low)
+.wrap
