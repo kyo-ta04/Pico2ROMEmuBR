@@ -12,6 +12,7 @@
 ## 構成
 - `rom_basic_const.c` などの ROM-BASIC 部分は [saki80basic](https://vintagechips.wordpress.com/2025/04/24/saki80basic/) 由来です。
   - 元のBASICサブセットは Grant Searle 氏が作成したものであり、Super AKI-80用に @vintagechip（電脳伝説）さんが移植・改良されています。
+  - RP2350 PIO ROMエミュレーション部分は @tendai22plus さんの [ROMエミュレーション](https://github.com/tendai22/emuz80_pico2/blob/main/doc/ROM_EMULATION.md) を参考にさせていただいてます（と言うかほぼそのまま💦)
   - 詳細は各々のライセンスを参照してください。
 
 ## 回路図・資料
@@ -30,6 +31,8 @@
 ## 謝辞
 - Grant Searle 氏（BASICサブセット版作者）
 - @vintagechip（電脳伝説）さん（Super AKI-80用BASIC作者）
+- @tendai22plus さん ([emuz80_pico2](https://github.com/tendai22/emuz80_pico2) 作者)
+- @shippoiincho さん、 @kondo_pc88 さん、 @TororoLab さん、 @I_HaL さん、 @antarcticlion さん、 @GAPUX さん、 @Tanuki_Bayashin さん、 @applesorce さん、@W88DodPECuThLOl さんを始めとしたアドバイス、イイね、RPしていただいた皆様。
 - Raspberry Pi Pico SDK 開発者の皆様
 - 本プロジェクトに関わる全ての方々
 
