@@ -16,10 +16,12 @@
 - RP2350 PIO ROMエミュレーション部分は @tendai22plus さんの [ROMエミュレーション](https://github.com/tendai22/emuz80_pico2/blob/main/doc/ROM_EMULATION.md) を参考にさせていただいてます（と言うかほぼそのまま💦)
 
 ## 回路図・資料
+- ![Pico2ROMEmuBR_RUN_img](./Pico2ROMEmuBR_RUN_img.png)
+  - 上記は実行例画像です。
+- ![Pico2ROMEmuBR_sch](./Pico2ROMEmuBR_sch.png)
+  - 上記は回路図の画像です。
 - ![Pico2ROMEmuBR_img](./Pico2ROMEmuBR_img.jpg)
   - 上記は実装例画像です。
-- ![Pico2ROMEmuBR_sch.png](./Pico2ROMEmuBR_sch.png)
-  - 上記は回路図の画像です。
 
 ## ライセンス
 - 本プロジェクトのソースコードは MIT ライセンスです。
