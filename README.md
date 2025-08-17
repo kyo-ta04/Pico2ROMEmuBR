@@ -5,13 +5,13 @@
 ## 特徴
 - Raspberry Pi Pico2 (RP2350) 専用です、 Pico (RP2040) ダメ。　ゼッタイ。
 - Pico2 (電源3.3v) と Super AKI-80 (電源5v)を直結するヤバいヤツです。（意味が解らない人は詳しい人に聞いてね）
-- ROMエミュレーションは8kByte、ROM-BASIC。　他にリセット、クロック(20MHz TMPZ84C015 10MHz動作)、USBシリアル変換機能あり。
+- ROMエミュレーションは8kByte、ROM-BASIC。　他にリセット、クロック(20MHz TMPZ84C015 10MHz動作)、USBシリアル変換、電源供給(5V)機能あり。
 - Super AKI-80は最小限の部品＆改造なし、これ一つだけで動作させることができます。
-- ワイのRP2350のPIO、UART、GPIO等のトレーニングを兼ねた実験的なプロジェクトです。
+- ワイのRP2350のPIO、マルチコア、UART、USBシリアル、GPIO等のトレーニングを兼ねた実験的なプロジェクトです。
 
 ## 構成
 - `rom_basic_const.c` などの ROM-BASIC 部分は [saki80basic](https://vintagechips.wordpress.com/2025/04/24/saki80basic/) 由来です。
-  - 元のBASICサブセットは Grant Searle 氏が作成したものであり、Super AKI-80用に @vintagechip（電脳伝説）さんが移植・改良されています。
+  - 元の[BASICサブセット](http://searle.x10host.com/cpm/index.html)は Grant Searle 氏が作成したものであり、Super AKI-80用に @vintagechip（電脳伝説）さんが移植・改良されています。
   - 詳細は各々のライセンスを参照してください。
 - RP2350 PIO ROMエミュレーション部分は @tendai22plus さんの [ROMエミュレーション](https://github.com/tendai22/emuz80_pico2/blob/main/doc/ROM_EMULATION.md) を参考にさせていただいてます（と言うかほぼそのまま💦)
 
