@@ -28,41 +28,41 @@ set(PICO_BOARD pico2 CACHE STRING "Board type")
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
-project(Rom2ROMEmuBR C CXX ASM)
+project(Pico2ROMEmuBR C CXX ASM)
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(Rom2ROMEmuBR Rom2ROMEmuBR.c)
+add_executable(Pico2ROMEmuBR Pico2ROMEmuBR.c )
 
-pico_set_program_name(Rom2ROMEmuBR "Rom2ROMEmuBR")
-pico_set_program_version(Rom2ROMEmuBR "0.1")
+pico_set_program_name(Pico2ROMEmuBR "Pico2ROMEmuBR")
+pico_set_program_version(Pico2ROMEmuBR "0.1")
 
 # Generate PIO header
-pico_generate_pio_header(Rom2ROMEmuBR ${CMAKE_CURRENT_LIST_DIR}/rom_emu.pio)
+pico_generate_pio_header(Pico2ROMEmuBR ${CMAKE_CURRENT_LIST_DIR}/rom_emu.pio)
 
 # Modify the below lines to enable/disable output over UART/USB
-pico_enable_stdio_uart(Rom2ROMEmuBR 0)
-pico_enable_stdio_usb(Rom2ROMEmuBR 1)
+pico_enable_stdio_uart(Pico2ROMEmuBR 0)
+pico_enable_stdio_usb(Pico2ROMEmuBR 1)
 
 # Add the standard library to the build
-target_link_libraries(Rom2ROMEmuBR
+target_link_libraries(Pico2ROMEmuBR
         pico_stdlib
 	pico_multicore)
 
 # Add the standard include files to the build
-target_include_directories(Rom2ROMEmuBR PRIVATE
+target_include_directories(Pico2ROMEmuBR PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
 )
 
 # Add any user requested libraries
-target_link_libraries(Rom2ROMEmuBR 
+target_link_libraries(Pico2ROMEmuBR 
         hardware_pio
         )
 
-pico_add_extra_outputs(Rom2ROMEmuBR)
+pico_add_extra_outputs(Pico2ROMEmuBR)
 
 
 

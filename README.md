@@ -2,17 +2,26 @@
 
 このプロジェクトは Super AKI-80用の Raspberry Pi Pico2を使用したROMエミュレータです。
 
+## 特徴
+- Raspberry Pi Pico2 (RP2350) 専用です、 Pico (RP2040) ダメ。　ゼッタイ。
+- Pico2 (電源3.3v) と Super AKI-80 (電源5v)を直結するヤバいヤツです。（意味が解らない人は詳しい人に聞いてね）
+- ROMエミュレーションは8kByte、ROM-BASIC。　他にリセット、クロック(20MHz TMPZ84C015 10MHz動作)、USBシリアル変換機能あり。
+- Super AKI-80は最小限の部品＆改造なし、これ一つだけで動作させることができます。
+- ワイのRP2350のPIO、UART、GPIO等のトレーニングを兼ねた実験的なプロジェクトです。
+
 ## 構成
-- ソースコード・ビルド関連ファイルは `SRC` フォルダにまとめています。
 - `rom_basic_const.c` などの ROM-BASIC 部分は [saki80basic](https://vintagechips.wordpress.com/2025/04/24/saki80basic/) 由来です。
   - 元のBASICサブセットは Grant Searle 氏が作成したものであり、Super AKI-80用に @vintagechip（電脳伝説）さんが移植・改良されています。
   - 詳細は各々のライセンスを参照してください。
+- RP2350 PIO ROMエミュレーション部分は @tendai22plus さんの [ROMエミュレーション](https://github.com/tendai22/emuz80_pico2/blob/main/doc/ROM_EMULATION.md) を参考にさせていただいてます（と言うかほぼそのまま💦)
 
 ## 回路図・資料
+- ![Pico2ROMEmuBR_RUN_img](./Pico2ROMEmuBR_RUN_img.png)
+  - 上記は実行例画像です。
+- ![Pico2ROMEmuBR_sch](./Pico2ROMEmuBR_sch.png)
+  - 上記は回路図の画像です。
 - ![Pico2ROMEmuBR_img](./Pico2ROMEmuBR_img.jpg)
   - 上記は実装例画像です。
-- [Pico2ROMEmuBR_sch.pdf](./Pico2ROMEmuBR_sch.pdf)
-  - 上記PDFは回路図です。PDFビューアでご覧ください。
 
 ## ライセンス
 - 本プロジェクトのソースコードは MIT ライセンスです。
@@ -24,6 +33,8 @@
 ## 謝辞
 - Grant Searle 氏（BASICサブセット版作者）
 - @vintagechip（電脳伝説）さん（Super AKI-80用BASIC作者）
+- @tendai22plus さん ([emuz80_pico2](https://github.com/tendai22/emuz80_pico2) 作者)
+- @shippoiincho さん、 @kondo_pc88 さん、 @TororoLab さん、 @I_HaL さん、 @antarcticlion さん、 @GAPUX さん、 @Tanuki_Bayashin さん、 @applesorce さん、@W88DodPECuThLOl さんを始めとしたアドバイス、イイね、RPしていただいた皆様。
 - Raspberry Pi Pico SDK 開発者の皆様
 - 本プロジェクトに関わる全ての方々
 
