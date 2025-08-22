@@ -20,8 +20,10 @@
   - 上記は実行例画像です。
 - ![Pico2ROMEmuBR_sch](./Pico2ROMEmuBR_sch.png)
   - 上記は回路図の画像です。
+- ![Pico2ROMEmuUB_img](./Pico2ROMEmuUB_img.jpg)
+  - 上記はユニバーサル基板の実装例画像です。
 - ![Pico2ROMEmuBR_img](./Pico2ROMEmuBR_img.jpg)
-  - 上記は実装例画像です。
+  - 上記はブレッドボードの実装例画像です。
 
 ## ライセンス
 - 本プロジェクトのソースコードは MIT ライセンスです。

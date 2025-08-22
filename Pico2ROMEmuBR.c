@@ -165,10 +165,7 @@ int main() {
     pio_sm_set_enabled(pio, sm1, true);
     init_rom_basic_code(); // rom_basic_const.cから初期化
 //    init_rom_mon_code(); // rom_mon_const.cから初期化
-    sleep_ms(3000); // 2秒待機
-    printf("\nPico2 システムクロック(1.3V) - %dMHz\n", sysclk / 1000);
-    printf("リセット出力状態 - ON\n");
-    printf("クロック出力(20MHz) 10Mz:9600bps - ON");
+    sleep_ms(3000); // 3秒待機
     // [Enter]入力を待つ
     printf("\n[Enter] を押すとROMエミュレータのテスト開始します...\n");
     while (true) {
@@ -178,6 +175,9 @@ int main() {
             break;
         }
     }
+    printf("\nPico2 システムクロック(1.3V) - %dMHz\n", sysclk / 1000);
+    printf("リセット出力状態 - ON\n");
+    printf("クロック出力(20MHz) 10MHz:9600bps - ON");
     printf("ROMエミュレータ起動 - core1\n");
     multicore_launch_core1(core1_entry);
     uint32_t g = multicore_fifo_pop_blocking();
