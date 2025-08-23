@@ -74,7 +74,7 @@ void set_qspi_clock_divider(uint32_t sys_clock_khz, uint32_t qspi_max_khz) {
 }
 
 int main() {
-    uint32_t sysclk = 320 * 1000;           // 320MHz 
+    uint32_t sysclk = 360 * 1000;           // 400MHz 
     vreg_set_voltage(VREG_VOLTAGE_1_30);    // 電圧を1.3Vに設定
     sleep_ms(100);                          // 電圧安定のための待機
     set_sys_clock_khz(sysclk, true);        // 高速動作
@@ -137,16 +137,12 @@ int main() {
     sm_config_set_set_pins(&c1, CLKOUT_PIN, 1); // GP28をクロック出力ピンとして設定
     pio_sm_set_consecutive_pindirs(pio, sm1, CLKOUT_PIN, 1, true); // CLKOUTピンの初期化
 
-    sm_config_set_clkdiv(&c1, sysclk / 40000); // 320MHz / 8 = 40MHz : 20MHz(10MHz 9600bps)
-//    sm_config_set_clkdiv(&c1, 7); // 280MHz / 7 = 40MHz : 20MHz(10MHz 9600bps)
-//    sm_config_set_clkdiv(&c1, 28); // 280MHz / 28 = 10MHz
-//    sm_config_set_clkdiv(&c1, 15); // 150MHz / 15 = 10MHz : 5MHz(2.5MHz 2400bps) 
+    sm_config_set_clkdiv(&c1, sysclk / 40000); //  40MHz : 20MHz(10MHz 9600bps)
 
      // sm2 のリセット出力を設定
     sm_config_set_set_pins(&c2, RESETOUT_PIN, 1); // GP25をリセット出力ピンとして設定
     pio_sm_set_consecutive_pindirs(pio, sm2, RESETOUT_PIN, 1, true); // リセット出力ピンの初期化 
-    sm_config_set_clkdiv(&c2, sysclk / 10); // 320MHz / 32000 = 10kHz (リセット出力のクロック)
-//    sm_config_set_clkdiv(&c2, 28000); // 280MHz / 28000 = 10kHz (リセット出力のクロック)
+    sm_config_set_clkdiv(&c2, sysclk / 10); //  10kHz (リセット出力のクロック)
     
     // sm2 のリセット出力プログラムをロード
     pio_sm_init(pio, sm2, offset2, &c2);
@@ -167,17 +163,17 @@ int main() {
 //    init_rom_mon_code(); // rom_mon_const.cから初期化
     sleep_ms(3000); // 3秒待機
     // [Enter]入力を待つ
-    printf("\n[Enter] を押すとROMエミュレータのテスト開始します...\n");
+    printf("\n[Enter] を押すとPico2 ROMエミュレータのテスト開始します...\n");
     while (true) {
         int c = getchar_timeout_us(100000); // 100msタイムアウト
         if (c == '\r') { // [Enter]（CR）が入力されたら開始
-            printf("ROMエミュレータのテスト開始...\n");
+            printf("Pico2 ROMエミュレータのテスト開始...\n");
             break;
         }
     }
     printf("\nPico2 システムクロック(1.3V) - %dMHz\n", sysclk / 1000);
     printf("リセット出力状態 - ON\n");
-    printf("クロック出力(20MHz) 10MHz:9600bps - ON");
+    printf("クロック出力(20MHz) 10MHz:9600bps - ON\n");
     printf("ROMエミュレータ起動 - core1\n");
     multicore_launch_core1(core1_entry);
     uint32_t g = multicore_fifo_pop_blocking();
