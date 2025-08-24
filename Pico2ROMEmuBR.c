@@ -9,13 +9,10 @@
 #include "pico/multicore.h"
 #include "rom_emu.pio.h"
 #include "rom_basic_const.c" 
-// #include "rom_mon_const.c" 
 
 #define DATA_PINS_BASE 2    // GP2～GP9 (D0-D7 8bit)
 #define ADDR_PINS_BASE 10   // GP10～GP22 (A0-A12 13bit)
 #define RESETOUT_PIN 25     // GP25 (リセット出力)
-// #define SIDES_PIN_BASE 25 // GP25 LED
-#define SIDES_PIN_NUM 1   // Sidesetピンの数
 
 #define OE_PIN 26           // GP26 Output Enable (OE#)
 #define CS_PIN 27           // GP27 Chip Select (CS#)
@@ -60,13 +57,6 @@ void init_rom_basic_code(void) {
 }
 
 
-// // rom_mon[]をrom_data[]にコピーする初期化ルーチン
-// void init_rom_mon_code(void) {
-//    // z80_binary[]の内容をrom_data[]の先頭にコピー
-//    memcpy(rom_data, rom_mon, sizeof(rom_mon));
-//    // 残りのrom[]を0xFFで埋める（8Kバイトまで）
-//    memset(rom_data + sizeof(rom_mon), 0xFF, ROM_SIZE - sizeof(rom_mon));
-//}
 // QSPIクロックを調整する関数
 void set_qspi_clock_divider(uint32_t sys_clock_khz, uint32_t qspi_max_khz) {
     uint32_t divider = (sys_clock_khz + qspi_max_khz - 1) / qspi_max_khz;
@@ -74,7 +64,7 @@ void set_qspi_clock_divider(uint32_t sys_clock_khz, uint32_t qspi_max_khz) {
 }
 
 int main() {
-    uint32_t sysclk = 360 * 1000;           // Pico2 システムクロック 360MHz 
+    uint32_t sysclk = 320 * 1000;           // Pico2 システムクロック 280/320/360MHz 
     vreg_set_voltage(VREG_VOLTAGE_1_30);    // 電圧を1.3Vに設定
     sleep_ms(100);                          // 電圧安定のための待機
     set_sys_clock_khz(sysclk, true);        // 高速動作
@@ -111,20 +101,17 @@ int main() {
     }
     
     pio_gpio_init(pio, RESETOUT_PIN); // リセット出力ピン(GP25)の初期化
-//    pio_gpio_init(pio, SIDES_PIN_BASE); // DEBUG用ピン Sideset GP25(LED)
     pio_gpio_init(pio, OE_PIN); // OEピン(GP26)の初期化
     pio_gpio_init(pio, CS_PIN); // CSピン(GP27)の初期化
     pio_gpio_init(pio, CLKOUT_PIN); // CLK出力ピン(GP28)の初期化
 
     sm_config_set_in_pins(&c, ADDR_PINS_BASE);
     sm_config_set_out_pins(&c, DATA_PINS_BASE, 8);
- //   sm_config_set_sideset_pins(&c, SIDES_PIN_BASE); // Sidesetピンの設定（GP25）
     sm_config_set_jmp_pin(&c, OE_PIN); // GPIO26 OEをJMPピンとして設定
     
 
 
     pio_sm_set_consecutive_pindirs(pio, sm, DATA_PINS_BASE, 8, false); // 出力ピン初期化
-//    pio_sm_set_consecutive_pindirs(pio, sm, SIDES_PIN_BASE, SIDES_PIN_NUM, true); // 出力ピン初期化
 
     // シフトレジスタの設定
     sm_config_set_in_shift(&c, false, false, 0); // ISR（入力シフトレジスタ）のシフト方向
@@ -156,7 +143,6 @@ int main() {
     pio_sm_init(pio, sm1, offset1, &c1);
     pio_sm_set_enabled(pio, sm1, true);
     init_rom_basic_code(); // rom_basic_const.cから初期化
-//    init_rom_mon_code(); // rom_mon_const.cから初期化
     sleep_ms(3000); // 3秒待機
     // [Enter]入力を待つ
     printf("\n[Enter] を押すとPico2 ROMエミュレータのテスト開始します...\n");
