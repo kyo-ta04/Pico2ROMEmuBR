@@ -13,8 +13,8 @@
 
 #define DATA_PINS_BASE 2    // GP2～GP9 (D0-D7 8bit)
 #define ADDR_PINS_BASE 10   // GP10～GP22 (A0-A12 13bit)
-#define RESETOUT_PIN 25     // GP25 (リセット出力)
-// #define SIDES_PIN_BASE 25 // GP25 LED
+// #define RESETOUT_PIN 25     // GP25 (リセット出力)
+#define SIDES_PIN_BASE 25 // GP25 LED
 #define SIDES_PIN_NUM 1   // Sidesetピンの数
 
 #define OE_PIN 26           // GP26 Output Enable (OE#)
@@ -74,7 +74,7 @@ void set_qspi_clock_divider(uint32_t sys_clock_khz, uint32_t qspi_max_khz) {
 }
 
 int main() {
-    uint32_t sysclk = 360 * 1000;           // Pico2 システムクロック 360MHz 
+    uint32_t sysclk = 320 * 1000;           // Pico2 システムクロック 280/320/360MHz 
     vreg_set_voltage(VREG_VOLTAGE_1_30);    // 電圧を1.3Vに設定
     sleep_ms(100);                          // 電圧安定のための待機
     set_sys_clock_khz(sysclk, true);        // 高速動作
@@ -110,21 +110,21 @@ int main() {
         pio_gpio_init(pio, ADDR_PINS_BASE + i);
     }
     
-    pio_gpio_init(pio, RESETOUT_PIN); // リセット出力ピン(GP25)の初期化
-//    pio_gpio_init(pio, SIDES_PIN_BASE); // DEBUG用ピン Sideset GP25(LED)
+    pio_gpio_init(pio, SIDES_PIN_BASE); // DEBUG用ピン Sideset GP25(LED)
+
     pio_gpio_init(pio, OE_PIN); // OEピン(GP26)の初期化
     pio_gpio_init(pio, CS_PIN); // CSピン(GP27)の初期化
     pio_gpio_init(pio, CLKOUT_PIN); // CLK出力ピン(GP28)の初期化
 
     sm_config_set_in_pins(&c, ADDR_PINS_BASE);
     sm_config_set_out_pins(&c, DATA_PINS_BASE, 8);
- //   sm_config_set_sideset_pins(&c, SIDES_PIN_BASE); // Sidesetピンの設定（GP25）
+    sm_config_set_sideset_pins(&c, SIDES_PIN_BASE); // Sidesetピンの設定（GP25）
     sm_config_set_jmp_pin(&c, OE_PIN); // GPIO26 OEをJMPピンとして設定
     
 
 
     pio_sm_set_consecutive_pindirs(pio, sm, DATA_PINS_BASE, 8, false); // 出力ピン初期化
-//    pio_sm_set_consecutive_pindirs(pio, sm, SIDES_PIN_BASE, SIDES_PIN_NUM, true); // 出力ピン初期化
+    pio_sm_set_consecutive_pindirs(pio, sm, SIDES_PIN_BASE, SIDES_PIN_NUM, true); // 出力ピン初期化
 
     // シフトレジスタの設定
     sm_config_set_in_shift(&c, false, false, 0); // ISR（入力シフトレジスタ）のシフト方向
@@ -137,14 +137,14 @@ int main() {
     sm_config_set_clkdiv(&c1, sysclk / 40000); //  40MHz : 20MHz(10MHz 9600bps)
 
      // sm2 のリセット出力を設定
-    sm_config_set_set_pins(&c2, RESETOUT_PIN, 1); // GP25をリセット出力ピンとして設定
-    pio_sm_set_consecutive_pindirs(pio, sm2, RESETOUT_PIN, 1, true); // リセット出力ピンの初期化 
-    sm_config_set_clkdiv(&c2, sysclk / 10); //  10kHz (リセット出力のクロック)
+//    sm_config_set_set_pins(&c2, RESETOUT_PIN, 1); // GP25をリセット出力ピンとして設定
+//    pio_sm_set_consecutive_pindirs(pio, sm2, RESETOUT_PIN, 1, true); // リセット出力ピンの初期化 
+//    sm_config_set_clkdiv(&c2, sysclk / 10); //  10kHz (リセット出力のクロック)
     
     // sm2 のリセット出力プログラムをロード
-    pio_sm_init(pio, sm2, offset2, &c2);
-    pio_sm_set_pins(pio, sm2, 1); // ピン値を1（Hi）に設定（set_pinsのベースからのビット値）
-    pio_sm_set_enabled(pio, sm2, true);
+//    pio_sm_init(pio, sm2, offset2, &c2);
+//    pio_sm_set_pins(pio, sm2, 1); // ピン値を1（Hi）に設定（set_pinsのベースからのビット値）
+//    pio_sm_set_enabled(pio, sm2, true);
 
     // sm のROMエミュプログラムをロード
     pio_sm_init(pio, sm, offset, &c);
@@ -181,8 +181,8 @@ int main() {
     }
 
    uint32_t tim = 1000; 
-   printf("リセット解除まで - %d ms\n", tim);  
-   pio_sm_put(pio, sm2, tim);
+//   printf("リセット解除まで - %d ms\n", tim);  
+//   pio_sm_put(pio, sm2, tim);
 
     // メインループ
     printf("UART-USBブリッジ動作開始...\n");
