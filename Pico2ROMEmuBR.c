@@ -74,15 +74,14 @@ void set_qspi_clock_divider(uint32_t sys_clock_khz, uint32_t qspi_max_khz) {
 }
 
 int main() {
-    uint32_t sysclk = 360 * 1000;           // 400MHz 
+    uint32_t sysclk = 360 * 1000;           // Pico2 システムクロック 360MHz 
     vreg_set_voltage(VREG_VOLTAGE_1_30);    // 電圧を1.3Vに設定
     sleep_ms(100);                          // 電圧安定のための待機
     set_sys_clock_khz(sysclk, true);        // 高速動作
     set_qspi_clock_divider(sysclk, 133000); // QSPIクロックを133MHz以下に
 
     stdio_init_all();
-
-    setbuf(stdout, NULL);
+    setbuf(stdout, NULL);           // 標準出力のバッファリングを無効化 
 
     // UART0の初期化
     uart_init(UART_ID, BAUD_RATE);
@@ -91,8 +90,6 @@ int main() {
     gpio_set_function(UART_RX_PIN, GPIO_FUNC_UART);
 
     // PIO初期化
-    //    PIO pio = pio0;
-    //    uint sm = 0;
     uint offset = pio_add_program(pio, &oe_address_control_program);
     pio_sm_config c = oe_address_control_program_get_default_config(offset);
 
@@ -146,11 +143,10 @@ int main() {
     
     // sm2 のリセット出力プログラムをロード
     pio_sm_init(pio, sm2, offset2, &c2);
-    // ここでピンの初期値をHiレベル（1）に設定（pio_gpio_initのLowを上書き）
     pio_sm_set_pins(pio, sm2, 1); // ピン値を1（Hi）に設定（set_pinsのベースからのビット値）
     pio_sm_set_enabled(pio, sm2, true);
 
-    // プログラムをロード
+    // sm のROMエミュプログラムをロード
     pio_sm_init(pio, sm, offset, &c);
     pio_sm_set_enabled(pio, sm, true);
 

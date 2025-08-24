@@ -13,7 +13,7 @@ loop1:
     mov pindirs, null     ; 9: GP0-7を入力モード
 .wrap
 
-.program clk_out            ; クロック 1/2の周波数を出力 (GP27)
+.program clk_out            ; クロック 1/2の周波数を出力 (GP28)
 .wrap_target
     set pins, 1   ; Turn on
     set pins, 0   ; Turn off
