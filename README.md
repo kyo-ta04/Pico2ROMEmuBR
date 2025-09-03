@@ -1,5 +1,5 @@
 # Pico2ROMEmu
-
+![Pico2ROMEmuBR](./IMG/Pico2ROMEmuBR_title_img.jpg)
 このプロジェクトは Super AKI-80用の Raspberry Pi Pico2を使用したROMエミュレータです。
 
 ## 特徴
@@ -20,8 +20,6 @@
   - 上記は実行例画像です。
 - ![Pico2ROMEmuBR_sch](./IMG/Pico2ROMEmuBR_sch.png)
   - 上記は回路図の画像です。
-- ![Pico2ROMEmuUB_img](./IMG/Pico2ROMEmuUB_img.jpg)
-  - 上記はユニバーサル基板の実装例画像です。
 - ![Pico2ROMEmuBR_img](./IMG/Pico2ROMEmuBR_img.jpg)
   - 上記はブレッドボードの実装例画像です。
 
