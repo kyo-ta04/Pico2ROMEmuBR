@@ -9,6 +9,7 @@
 - ROMエミュレーションは8kByte、ROM-BASIC。　他にリセット出力(オープンコレクタ)、クロック出力 20MHz (TMPZ84C015: Z80 10MHz動作)、UART-USB変換、電源供給(5V)機能あり。
 - Super AKI-80は最小限の部品＆改造なし、これ一つだけで動作させることができます。
 - RP2350のPIO、マルチコア、UART-USB変換、GPIO等のトレーニングを兼ねた実験的なプロジェクトです。
+- 基板を作成しました -> [Pico2ROMEmuPCB](./Pico2ROMEmuPCB/README.md)
 
 ## 構成
 - `rom_basic_const.c` などの ROM-BASIC 部分は [saki80basic](https://vintagechips.wordpress.com/2025/04/24/saki80basic/) 由来です。
