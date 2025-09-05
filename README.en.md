@@ -1,7 +1,7 @@
 # Pico2ROMEmu
 ![Pico2ROMEmuBR](./IMG/Pico2ROMEmuBR_title_img.jpg)
-This project is a simple and fast ROM emulator using Raspberry Pi Pico2 (the binary is for Super AKI-80).
-
+This project is a simple and fast ROM emulator using Raspberry Pi Pico2 (the binary is for Super AKI-80).  
+[日本語のReadme](./README.md)
 ## Features
 - The main component is just a Pico2, and it's fast (Z80 10MHz no wait states!).
 - This is exclusively for Raspberry Pi Pico2 (RP2350), not for Pico (RP2040). Absolutely not.

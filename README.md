@@ -1,7 +1,7 @@
 # Pico2ROMEmu
 ![Pico2ROMEmuBR](./IMG/Pico2ROMEmuBR_title_img.jpg)
 このプロジェクトは Raspberry Pi Pico2を使用した簡単で高速なROMエミュレータです(バイナリはSuper AKI-80用) 
-
+[English Readme](./README.en.md)
 ## 特徴
 - 主要部品はPico2だけ、そして高速(Z80 10MHzノーウェイト！)
 - Raspberry Pi Pico2 (RP2350) 専用です、 Pico (RP2040) ダメ。　ゼッタイ。
