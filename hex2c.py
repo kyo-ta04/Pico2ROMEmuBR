@@ -2,7 +2,7 @@
 rom_size = 0x2000  # 必要に応じてサイズ調整
 rom = [0xFF] * rom_size
 
-with open("SAKI80MB.HEX", "r") as fin:
+with open("MONITOR.HEX", "r") as fin:
     for line in fin:
         if not line.startswith(":"):
             continue
