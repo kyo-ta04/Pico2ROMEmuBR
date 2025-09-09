@@ -8,7 +8,8 @@
 #include "hardware/pll.h"
 #include "pico/multicore.h"
 #include "rom_emu.pio.h"
-#include "rom_basic_const.c" 
+#include "rom_l.h" 
+#include "rom_u.h"
 
 #define DATA_PINS_BASE 2    // GP2～GP9 (D0-D7 8bit)
 #define ADDR_PINS_BASE 10   // GP10～GP22 (A0-A12 13bit)
@@ -20,7 +21,9 @@
 
 // UART0の設定
 #define UART_ID uart0
-#define BAUD_RATE 9600
+// #define BAUD_RATE 9600
+// #define BAUD_RATE 57600
+#define BAUD_RATE 19200
 #define UART_TX_PIN 0
 #define UART_RX_PIN 1
 
@@ -48,12 +51,14 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {
 }
 
 
-// rom_basic[]をrom_data[]にコピーする初期化ルーチン
-void init_rom_basic_code(void) {
-    // z80_binary[]の内容をrom_data[]の先頭にコピー
-    memcpy(rom_data, rom_basic, sizeof(rom_basic));
-    // 残りのrom[]を0xFFで埋める（8Kバイトまで）
-    memset(rom_data + sizeof(rom_basic), 0xFF, ROM_SIZE - sizeof(rom_basic));
+// rom_l[]をrom_data[]にコピーする初期化ルーチン
+void init_rom_code(const unsigned char rom_init_data[], unsigned int rom_init_size) {
+    // rom_l[]の内容をrom_data[]の先頭にコピー
+    memcpy(rom_data, rom_init_data, rom_init_size);
+    // rom_l_sizeがROM_SIZEより小さい場合、残りを0xFFで埋める
+    if (rom_l_size < ROM_SIZE) {
+        memset(rom_data + rom_init_size, 0xFF, ROM_SIZE - rom_init_size);
+    }
 }
 
 
@@ -64,7 +69,7 @@ void set_qspi_clock_divider(uint32_t sys_clock_khz, uint32_t qspi_max_khz) {
 }
 
 __attribute__((noinline)) int __time_critical_func(main)(void) {
-    uint32_t sysclk = 280 * 1000;           // Pico2 システムクロック 280/320/360MHz 
+    uint32_t sysclk = 360 * 1000;           // Pico2 システムクロック 280/320/360MHz 
     vreg_set_voltage(VREG_VOLTAGE_1_30);    // 電圧を1.3Vに設定
     sleep_ms(100);                          // 電圧安定のための待機
     set_sys_clock_khz(sysclk, true);        // 高速動作
@@ -121,7 +126,11 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
     sm_config_set_set_pins(&c1, CLKOUT_PIN, 1); // GP28をクロック出力ピンとして設定
     pio_sm_set_consecutive_pindirs(pio, sm1, CLKOUT_PIN, 1, true); // CLKOUTピンの初期化
 
-    sm_config_set_clkdiv(&c1, (float)sysclk / 40000.0f); //  40MHz : 20MHz(10MHz 9600bps)
+    float outclk = 4 * 1000;           // クロック出力周波数 68k-nano 4MHz 19200bps
+
+//    sm_config_set_clkdiv(&c1, (float)sysclk / 40000.0f); //  40MHz : 20MHz(10MHz 9600bps)
+//    sm_config_set_clkdiv(&c1, (float)sysclk / 24000.0f); // 68k-nano 12MHz 57600bps 
+    sm_config_set_clkdiv(&c1, (float)sysclk / (outclk * 2.0f));  
 
      // sm2 のリセット出力を設定
     sm_config_set_set_pins(&c2, RESETOUT_PIN, 1); // GP25をリセット出力ピンとして設定
@@ -142,20 +151,50 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
     // sm1 のクロック出力プログラムをロード
     pio_sm_init(pio, sm1, offset1, &c1);
     pio_sm_set_enabled(pio, sm1, true);
-    init_rom_basic_code(); // rom_basic_const.cから初期化
     sleep_ms(3000); // 3秒待機
     // [Enter]入力を待つ
     printf("\n[Enter] を押すとPico2 ROMエミュレータのテスト開始します...\n");
     while (true) {
         int c = getchar_timeout_us(100000); // 100msタイムアウト
         if (c == '\r') { // [Enter]（CR）が入力されたら開始
-            printf("Pico2 ROMエミュレータのテスト開始...\n");
+            printf("Pico2 ROMエミュレータのテスト開始... 68k-nano\n");
             break;
         }
     }
+
+    char choice;
+    while (true) {
+        printf("\nROMイメージ選択:\n");
+        printf("1 - 68k-nano Upper\n");
+        printf("2 - 68k-nano Lower\n");
+        printf("> Enter choice: ");
+        choice = getchar();  // Read a single character from USB console
+        printf("\nYou selected: %c\n\n", choice);
+
+        switch (choice) {
+            case '1':
+                printf("68k-nano Upper!\n");
+                break;
+            case '2':
+                printf("68k-nano Lower!\n");
+                break;
+            default:
+                printf("Invalid choice! Please try again.\n");
+                break;
+        }
+        if (choice == '1' || choice == '2') {
+            break; // Valid choice, exit the loop
+        }
+    }
+    if (choice == '1') {
+        init_rom_code(rom_u, rom_u_size); // rom_** .cから初期化
+    } else {
+        init_rom_code(rom_l, rom_l_size); // rom_** .cから初期化
+    }
+
     printf("\nPico2 システムクロック(1.3V) - %dMHz\n", sysclk / 1000);
     printf("リセット出力状態 - ON\n");
-    printf("クロック出力(20MHz) 10MHz:9600bps - ON\n");
+    printf("クロック出力 %.0fMHz: %dbps - ON\n", outclk / 1000.0f, BAUD_RATE); // 16分周
     printf("ROMエミュレータ起動 - core1\n");
     multicore_launch_core1(core1_entry);
     uint32_t g = multicore_fifo_pop_blocking();
