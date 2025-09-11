@@ -14,9 +14,9 @@ This project is a simple and fast ROM emulator using Raspberry Pi Pico2.
 
 ## Structure
 - The ROM-BASIC part such as `rom_basic_const.c` is derived from [saki80basic](https://vintagechips.wordpress.com/2025/04/24/saki80basic/).
-  - The original [BASIC subset](http://searle.x10host.com/cpm/index.html) was created by Mr. Grant Searle, and was ported and improved for the Super AKI-80 by @vintagechip (Dennou Densetsu).
-- Tom's SBC was created by peabody1929, with ROM data originating from CP/M machine - Grant Searle.
-- 68k-nano was created and released by Matt Sarnoff (74hc595). The ROM data was generated from the source.
+  - The original [BASIC subset](http://searle.x10host.com/cpm/index.html) was created by Mr. Grant Searle, and was ported and improved for the [Super AKI-80 by @vintagechip (Dennou Densetsu)](https://vintagechips.wordpress.com/2025/04/24/saki80basic/).
+- [Tom's SBC](https://oshwlab.com/peabody1929/CPM_Z80_Board_REV_B_copy-76313012f79945d3b8b9d3047368abf7) was created by peabody1929, with ROM data originating from [CP/M machine - Grant Searle](http://searle.x10host.com/cpm/index.html).
+- [68k-nano](https://github.com/74hc595/68k-nano) was created and released by Matt Sarnoff (74hc595). The ROM data was generated from the source.
 - The RP2350 PIO ROM emulation part is based on @tendai22plus's [ROM emulation](https://github.com/tendai22/emuz80_pico2/blob/main/doc/ROM_EMULATION.md) (or rather, it's almost the same 💦).
 - Please refer to the respective licenses for details.
 
