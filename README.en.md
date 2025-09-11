@@ -1,5 +1,6 @@
 # Pico2ROMEmu
-![Pico2ROMEmuBR](./IMG/Pico2ROMEmuPCB_68nano_img_2_1.jpg)
+![Pico2ROMEmuBR](./IMG/Pico2ROMEmuBR_title_img.jpg)
+<!-- [Pico2ROMEmuBR](./IMG/Pico2ROMEmuPCB_68nano_img_2_1.jpg) -->
 This project is a simple and fast ROM emulator using Raspberry Pi Pico2.  
 [日本語のReadme](./README.md)
 ## Features
