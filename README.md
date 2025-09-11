@@ -12,6 +12,7 @@
 - Super AKI-80は最小限の部品＆改造なし、これ一つだけで動作させることができます。
 - RP2350のPIO、マルチコア、UART-USB変換、GPIO等のトレーニングを兼ねた実験的なプロジェクトです。
 - 基板を作成しました -> [Pico2ROMEmuPCB](./Pico2ROMEmuPCB/README.md)
+- [68k-nanoブランチはこちら](https://github.com/kyo-ta04/Pico2ROMEmuBR/tree/68k-nano)
 
 ## 構成
 - `rom_basic_const.c` などの ROM-BASIC 部分は [saki80basic](https://github.com/vintagechips/saki80basic) 由来です。

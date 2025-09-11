@@ -12,6 +12,7 @@ This project is a simple and fast ROM emulator using Raspberry Pi Pico2.
 - Super AKI-80 can be operated with this one unit with minimal parts and no modification.
 - This is an experimental project that also serves as training for RP2350's PIO, multi-core, UART-USB conversion, GPIO, etc.
 - A PCB has been created -> [Pico2ROMEmuPCB](./Pico2ROMEmuPCB/README.md)
+- [The 68k-nano branch is here](https://github.com/kyo-ta04/Pico2ROMEmuBR/tree/68k-nano)
 
 ## Structure
 - The ROM-BASIC part such as `rom_basic_const.c` is derived from [saki80basic](https://vintagechips.wordpress.com/2025/04/24/saki80basic/).
