@@ -21,9 +21,9 @@
 
 // UART0の設定
 #define UART_ID uart0
+#define BAUD_RATE 57600
+// #define BAUD_RATE 19200
 // #define BAUD_RATE 9600
-// #define BAUD_RATE 57600
-#define BAUD_RATE 19200
 #define UART_TX_PIN 0
 #define UART_RX_PIN 1
 
@@ -53,9 +53,9 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {
 
 // rom_l[]をrom_data[]にコピーする初期化ルーチン
 void init_rom_code(const unsigned char rom_init_data[], unsigned int rom_init_size) {
-    // rom_l[]の内容をrom_data[]の先頭にコピー
+    // rom_init_data[]の内容をrom_data[]の先頭にコピー
     memcpy(rom_data, rom_init_data, rom_init_size);
-    // rom_l_sizeがROM_SIZEより小さい場合、残りを0xFFで埋める
+    // rom_init_sizeがROM_SIZEより小さい場合、残りを0xFFで埋める
     if (rom_l_size < ROM_SIZE) {
         memset(rom_data + rom_init_size, 0xFF, ROM_SIZE - rom_init_size);
     }
@@ -126,10 +126,10 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
     sm_config_set_set_pins(&c1, CLKOUT_PIN, 1); // GP28をクロック出力ピンとして設定
     pio_sm_set_consecutive_pindirs(pio, sm1, CLKOUT_PIN, 1, true); // CLKOUTピンの初期化
 
-    float outclk = 4 * 1000;           // クロック出力周波数 68k-nano 4MHz 19200bps
+    float outclk = 12 * 1000;           // クロック出力周波数 68k-nano 12MHz 57600bps
+//    float outclk = 4 * 1000;           // クロック出力周波数 68k-nano 4MHz 19200bps
+//    float outclk = 2 * 1000;           // クロック出力周波数 68k-nano 2MHz 9600bps
 
-//    sm_config_set_clkdiv(&c1, (float)sysclk / 40000.0f); //  40MHz : 20MHz(10MHz 9600bps)
-//    sm_config_set_clkdiv(&c1, (float)sysclk / 24000.0f); // 68k-nano 12MHz 57600bps 
     sm_config_set_clkdiv(&c1, (float)sysclk / (outclk * 2.0f));  
 
      // sm2 のリセット出力を設定
@@ -165,18 +165,18 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
     char choice;
     while (true) {
         printf("\nROMイメージ選択:\n");
-        printf("1 - 68k-nano Upper\n");
-        printf("2 - 68k-nano Lower\n");
+        printf("1 - 68k-nano Lower(odd)\n");
+        printf("2 - 68k-nano Upper(even)\n");
         printf("> Enter choice: ");
         choice = getchar();  // Read a single character from USB console
         printf("\nYou selected: %c\n\n", choice);
 
         switch (choice) {
             case '1':
-                printf("68k-nano Upper!\n");
+                printf("68k-nano Lower!\n");
                 break;
             case '2':
-                printf("68k-nano Lower!\n");
+                printf("68k-nano Upper!\n");
                 break;
             default:
                 printf("Invalid choice! Please try again.\n");
@@ -187,9 +187,9 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
         }
     }
     if (choice == '1') {
-        init_rom_code(rom_u, rom_u_size); // rom_** .cから初期化
-    } else {
         init_rom_code(rom_l, rom_l_size); // rom_** .cから初期化
+    } else {
+        init_rom_code(rom_u, rom_u_size); // rom_** .cから初期化
     }
 
     printf("\nPico2 システムクロック(1.3V) - %dMHz\n", sysclk / 1000);
