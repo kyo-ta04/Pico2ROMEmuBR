@@ -36,11 +36,11 @@ This project is a simple and fast ROM emulator using Raspberry Pi Pico2.
 This software is provided as is. The author is not responsible for any damage.
 
 ## Acknowledgments
-- Mr. Grant Searle (author of the BASIC subset version/CP/M machine)
-- @vintagechip (Dennou Densetsu) (author of BASIC for Super AKI-80)
-- @tendai22plus (author of [emuz80_pico2](https://github.com/tendai22/emuz80_pico2))
-- peabody1929 (Author of Tom's SBC)
-- Matt Sarnoff (74hc595) (Author of 68k-nano)
+- Mr. Grant Searle ([author of the BASIC subset version/CP/M machine](http://searle.x10host.com/index.html))
+- @vintagechip (Dennou Densetsu) ([author of BASIC for Super AKI-80](https://vintagechips.wordpress.com/))
+- @tendai22plus ([author of emuz80_pico2](https://github.com/tendai22/emuz80_pico2))
+- peabody1929 ([Author of Tom's SBC](https://oshwlab.com/peabody1929/works))
+- Matt Sarnoff (74hc595) ([Author of 68k-nano](https://github.com/74hc595/68k-nano))
 - @shippoiincho, @kondo_pc88, @TororoLab, @I_HaL, @antarcticlion, @GAPUX, @Tanuki_Bayashin, @applesorce, @W88DodPECuThLOl, and everyone who gave advice, likes, and retweets.
 - Raspberry Pi Pico SDK developers
 - Everyone involved in this project
