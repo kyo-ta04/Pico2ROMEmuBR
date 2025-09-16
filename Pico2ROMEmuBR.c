@@ -71,10 +71,14 @@ void set_qspi_clock_divider(uint32_t sys_clock_khz, uint32_t qspi_max_khz) {
 
 <<<<<<< HEAD
 __attribute__((noinline)) int __time_critical_func(main)(void) {
+<<<<<<< HEAD
 =======
 int main() {
 >>>>>>> 4f5c86795a31b8745b7493a5b1060441fec5bd78
     uint32_t sysclk = 320 * 1000;           // Pico2 システムクロック 280/320/360MHz 
+=======
+    uint32_t sysclk = 280 * 1000;           // Pico2 システムクロック 280/320/360MHz 
+>>>>>>> origin/develop
     vreg_set_voltage(VREG_VOLTAGE_1_30);    // 電圧を1.3Vに設定
     sleep_ms(100);                          // 電圧安定のための待機
     set_sys_clock_khz(sysclk, true);        // 高速動作
