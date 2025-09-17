@@ -1,14 +1,15 @@
 ; rom_emu.pio 
 .program oe_address_control
+.side_set 1 opt           ; タイミング確認用 GP25(LED)
 .wrap_target
 loop1:
-    wait 0 gpio 27        ; 1: CS有効待ち
+    wait 0 gpio 27 side 0 ; 1: CS有効待ち (タイミング確認用)
     jmp pin loop1         ; 2: OE無効なら loop1 へ
     in pins, 13           ; 3: GP10-22(A0-A12) 13ピン読込
     push                  ; 4: アドレスをプッシュ
     pull                  ; 5: データをプル
     mov pindirs, ~null    ; 6: GP0-7を出力モード
-    out pins, 8           ; 7: データ出力
+    out pins, 8 side 1    ; 7: データ出力 (タイミング確認用)
     wait 1 gpio 26        ; 8: OE無効待ち
     mov pindirs, null     ; 9: GP0-7を入力モード
 .wrap
