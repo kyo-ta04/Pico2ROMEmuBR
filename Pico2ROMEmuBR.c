@@ -12,13 +12,7 @@
 
 #define DATA_PINS_BASE 2    // GP2～GP9 (D0-D7 8bit)
 #define ADDR_PINS_BASE 10   // GP10～GP22 (A0-A12 13bit)
-<<<<<<< HEAD
 #define RESETOUT_PIN 25     // GP25 (リセット出力)
-=======
-// #define RESETOUT_PIN 25     // GP25 (リセット出力)
-#define SIDES_PIN_BASE 25 // GP25 LED
-#define SIDES_PIN_NUM 1   // Sidesetピンの数
->>>>>>> 4f5c86795a31b8745b7493a5b1060441fec5bd78
 
 #define OE_PIN 26           // GP26 Output Enable (OE#)
 #define CS_PIN 27           // GP27 Chip Select (CS#)
@@ -69,16 +63,8 @@ void set_qspi_clock_divider(uint32_t sys_clock_khz, uint32_t qspi_max_khz) {
     clock_configure(clk_peri, 0, CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLKSRC_PLL_SYS, sys_clock_khz * 1000, sys_clock_khz * 1000 / divider);
 }
 
-<<<<<<< HEAD
 __attribute__((noinline)) int __time_critical_func(main)(void) {
-<<<<<<< HEAD
-=======
-int main() {
->>>>>>> 4f5c86795a31b8745b7493a5b1060441fec5bd78
     uint32_t sysclk = 320 * 1000;           // Pico2 システムクロック 280/320/360MHz 
-=======
-    uint32_t sysclk = 280 * 1000;           // Pico2 システムクロック 280/320/360MHz 
->>>>>>> origin/develop
     vreg_set_voltage(VREG_VOLTAGE_1_30);    // 電圧を1.3Vに設定
     sleep_ms(100);                          // 電圧安定のための待機
     set_sys_clock_khz(sysclk, true);        // 高速動作
@@ -114,31 +100,18 @@ int main() {
         pio_gpio_init(pio, ADDR_PINS_BASE + i);
     }
     
-<<<<<<< HEAD
     pio_gpio_init(pio, RESETOUT_PIN); // リセット出力ピン(GP25)の初期化
-=======
-    pio_gpio_init(pio, SIDES_PIN_BASE); // DEBUG用ピン Sideset GP25(LED)
-
->>>>>>> 4f5c86795a31b8745b7493a5b1060441fec5bd78
     pio_gpio_init(pio, OE_PIN); // OEピン(GP26)の初期化
     pio_gpio_init(pio, CS_PIN); // CSピン(GP27)の初期化
     pio_gpio_init(pio, CLKOUT_PIN); // CLK出力ピン(GP28)の初期化
 
     sm_config_set_in_pins(&c, ADDR_PINS_BASE);
     sm_config_set_out_pins(&c, DATA_PINS_BASE, 8);
-<<<<<<< HEAD
-=======
-    sm_config_set_sideset_pins(&c, SIDES_PIN_BASE); // Sidesetピンの設定（GP25）
->>>>>>> 4f5c86795a31b8745b7493a5b1060441fec5bd78
     sm_config_set_jmp_pin(&c, OE_PIN); // GPIO26 OEをJMPピンとして設定
     
 
 
     pio_sm_set_consecutive_pindirs(pio, sm, DATA_PINS_BASE, 8, false); // 出力ピン初期化
-<<<<<<< HEAD
-=======
-    pio_sm_set_consecutive_pindirs(pio, sm, SIDES_PIN_BASE, SIDES_PIN_NUM, true); // 出力ピン初期化
->>>>>>> 4f5c86795a31b8745b7493a5b1060441fec5bd78
 
     // シフトレジスタの設定
     sm_config_set_in_shift(&c, false, false, 0); // ISR（入力シフトレジスタ）のシフト方向
