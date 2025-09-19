@@ -5,9 +5,10 @@ This project is a simple and fast ROM emulator using Raspberry Pi Pico2.
 [日本語のReadme](./README.md)
 ## Features
 - The main component is just a Pico2, and it's fast (Z80 10MHz, MC68HC000 12MHz no wait!).
-- This is exclusively for Raspberry Pi Pico2 (RP2350), not for Pico (RP2040). Absolutely not.
-- It's a crazy device that directly connects Pico2 (3.3v power) and Super AKI-80/Tom's SBC/68k-nano (Z80/MC68000-based SBC, 5v power). (If you don't understand what this means, please ask someone knowledgeable).
-- ROM emulation is 8kByte, ROM-BASIC (Super AKI-80 only)
+- This is exclusively for Raspberry Pi Pico2 (RP2350).
+- Super AKI-80, Tom's SBC (CP/M machine - Grant Searle), and 68k-nano are supported.
+- Pico2 (3.3V power supply) is directly connected to a Z80/MC68000-based SBC (5V power supply).
+- ROM emulation uses a 27256 DIP-28 pin package but has 8kB capacity; ROM-BASIC (Super AKI-80 only).
 . Features reset output (open collector), clock output 20/12/10MHz, UART-USB conversion, and power supply (5V) function.
 - Super AKI-80 can be operated with this one unit with minimal parts and no modification.
 - This is an experimental project that also serves as training for RP2350's PIO, multi-core, UART-USB conversion, GPIO, etc.

@@ -4,13 +4,15 @@
 このプロジェクトは Raspberry Pi Pico2を使用した簡単で高速なROMエミュレータです   
 [English Readme](./README.en.md)
 ## 特徴
-- 主要部品はPico2だけ、そして高速(Z80 10MHz, MC68HC000 12MHzノーウェイト！)
-- Raspberry Pi Pico2 (RP2350) 専用です、 Pico (RP2040) ダメ。　ゼッタイ。
-- Pico2 (電源3.3v) と Super AKI-80/Tom's SBC/68k-nano (Z80/MC68000ベースの SBC、電源5v)を直結するヤバいヤツです。（意味が解らない人は詳しい人に聞いてね）
-- ROMエミュレーションは8kByte、ROM-BASIC(Super AKI-80のみ)。
+- 主要部品はPico2だけ、そして高速！(Z80 10MHz, MC68HC000 12MHzノーウェイト)
+- Raspberry Pi Pico2 (RP2350) 専用です。
+- Super AKI-80、Tom's SBC(CP/M machine - Grant Searle)、68k-nanoで動作しました。
+- Pico2(電源3.3V)と Z80/MC68000ベースの SBC(電源5V)を直結しています。
+- ROMエミュレーションは27256 DIP-28ピンですが8kByte、ROM-BASIC(Super AKI-80のみ)。
 - リセット出力(オープンコレクタ)、クロック出力 20/12/10MHz、UART-USB変換、電源供給(5V)機能あり。
 - Super AKI-80は最小限の部品＆改造なし、これ一つだけで動作させることができます。
 - RP2350のPIO、マルチコア、UART-USB変換、GPIO等のトレーニングを兼ねた実験的なプロジェクトです。
+<!-- - 基板を作成しました -> [Pico2ROMEmuPCB](./Pico2ROMEmuPCB/README.md) -->
 - 基板を作成しました -> [Pico2ROMEmuPCB](./Pico2ROMEmuPCB/README.md)
 - [68k-nanoブランチはこちら](https://github.com/kyo-ta04/Pico2ROMEmuBR/tree/68k-nano)
 
