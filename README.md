@@ -25,6 +25,12 @@
 - 詳細は各々のライセンスを参照してください。
 
 ## 回路図・資料
+- ![68k-nano](./IMG/Pico2ROMEmu_68nano01.jpg)
+  - 上記は 68k-nanoの実装例画像です。
+- ![68k-nano](./IMG/Pico2ROMEmu_Toms01.jpg)
+  - 上記は Tom's SBCの実装例画像です。
+- ![Super AKI-80](./IMG/Pico2ROMEmu_SAKI01.jpg)
+  - 上記は Super AKI-80の実装例画像です。
 - ![Pico2ROMEmuBR_img](./IMG/Pico2ROMEmuBR_img.jpg)
   - 上記はブレッドボードの実装例画像です。
 - ![Pico2ROMEmuBR_sch](./IMG/Pico2ROMEmuBR_sch.png)

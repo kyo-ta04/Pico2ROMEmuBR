@@ -24,6 +24,12 @@ This project is a simple and fast ROM emulator using Raspberry Pi Pico2.
 - Please refer to the respective licenses for details.
 
 ## Schematics and Documents
+- ![68k-nano](./IMG/Pico2ROMEmu_68nano01.jpg)
+  - The above is an image of a 68k-nano implementation example.
+- ![Tom's SBC](./IMG/Pico2ROMEmu_Toms01.jpg)
+  - The above is an image of a Tom's SBC implementation example.
+- ![Super AKI-80](./IMG/Pico2ROMEmu_SAKI01.jpg)
+  - The above is an image of a Super AKI-80 implementation example.
 - ![Pico2ROMEmuBR_img](./IMG/Pico2ROMEmuBR_img.jpg)
   - The above is an image of a breadboard implementation example.
 - ![Pico2ROMEmuBR_sch](./IMG/Pico2ROMEmuBR_sch.png)
