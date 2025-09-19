@@ -124,14 +124,14 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
     sm_config_set_clkdiv(&c1, (float)sysclk / 40000.0f); //  40MHz : 20MHz(10MHz 9600bps)
 
      // sm2 のリセット出力を設定
-//    sm_config_set_set_pins(&c2, RESETOUT_PIN, 1); // GP25をリセット出力ピンとして設定
-//    pio_sm_set_consecutive_pindirs(pio, sm2, RESETOUT_PIN, 1, true); // リセット出力ピンの初期化 
-//    sm_config_set_clkdiv(&c2, sysclk / 10); //  10kHz (リセット出力のクロック)
+    sm_config_set_set_pins(&c2, RESETOUT_PIN, 1); // GP25をリセット出力ピンとして設定
+    pio_sm_set_consecutive_pindirs(pio, sm2, RESETOUT_PIN, 1, true); // リセット出力ピンの初期化 
+    sm_config_set_clkdiv(&c2, sysclk / 10); //  10kHz (リセット出力のクロック)
     
     // sm2 のリセット出力プログラムをロード
-//    pio_sm_init(pio, sm2, offset2, &c2);
-//    pio_sm_set_pins(pio, sm2, 1); // ピン値を1（Hi）に設定（set_pinsのベースからのビット値）
-//    pio_sm_set_enabled(pio, sm2, true);
+    pio_sm_init(pio, sm2, offset2, &c2);
+    pio_sm_set_pins(pio, sm2, 1); // ピン値を1（Hi）に設定（set_pinsのベースからのビット値）
+    pio_sm_set_enabled(pio, sm2, true);
 
     // sm のROMエミュプログラムをロード
     pio_sm_init(pio, sm, offset, &c);
@@ -166,9 +166,9 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
         printf("コア0ではすべてうまくいきました!\n");
     }
 
-   uint32_t tim = 1000; 
-//   printf("リセット解除まで - %d ms\n", tim);  
-//   pio_sm_put(pio, sm2, tim);
+    uint32_t tim = 1000; 
+    printf("リセット解除まで - %d ms\n", tim);  
+    pio_sm_put(pio, sm2, tim);
 
     // メインループ
     printf("UART-USBブリッジ動作開始...\n");
