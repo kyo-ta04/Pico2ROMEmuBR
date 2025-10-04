@@ -25,6 +25,8 @@
 - 詳細は各々のライセンスを参照してください。
 
 ## 回路図・資料
+- ![RP2350B Core Board](./IMG/Pico2ROMEmuPCB_CoreBoard_img_1.jpg)
+  - 上記は RP2350B Core Boardの実装例画像です。
 - ![68k-nano](./IMG/Pico2ROMEmu_68nano01.jpg)
   - 上記は 68k-nanoの実装例画像です。
 - ![68k-nano](./IMG/Pico2ROMEmu_Toms01.jpg)

@@ -24,6 +24,8 @@ This project is a simple and fast ROM emulator using Raspberry Pi Pico2.
 - Please refer to the respective licenses for details.
 
 ## Schematics and Documents
+- ![RP2350B Core Board](./IMG/Pico2ROMEmuPCB_CoreBoard_img_1.jpg)
+  - The above is an image of a RP2350B Core Board implementation example.
 - ![68k-nano](./IMG/Pico2ROMEmu_68nano01.jpg)
   - The above is an image of a 68k-nano implementation example.
 - ![Tom's SBC](./IMG/Pico2ROMEmu_Toms01.jpg)
