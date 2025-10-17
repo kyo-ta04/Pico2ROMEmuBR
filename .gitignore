@@ -37,6 +37,8 @@ venv/
 
 # エディタ / IDE
 .vscode/
+!/.vscode/
+!/.vscode/settings.json
 *.code-workspace
 
 # OS / エディタ固有のゴミファイル
@@ -49,4 +51,4 @@ desktop.ini
 
 # ユーザーが意図的に含める場合は除外項目を解除してください
 # 例: リポジトリに .vscode 設定を含めたい場合は下行の '!' 行を追加できます
-# !.vscode/settings.json
+!/.vscode/settings.json
