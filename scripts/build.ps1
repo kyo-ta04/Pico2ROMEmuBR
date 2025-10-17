@@ -15,7 +15,7 @@ $Root = Split-Path -Parent $MyInvocation.MyCommand.Definition
 Set-Location $Root\..\
 
 $ConfigureScript = Join-Path $PSScriptRoot "configure.ps1"
-$Ninja = "C:/Users/abu_s/.pico-sdk/ninja/v1.12.1/ninja.exe"
+$Ninja = "$env:USERPROFILE/.pico-sdk/ninja/$env:PICO_NINJA_VERSION/ninja.exe"
 
 if ($Clean) {
     Write-Output "Cleaning build/ ..."

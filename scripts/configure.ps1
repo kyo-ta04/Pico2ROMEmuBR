@@ -7,8 +7,8 @@ param(
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Definition
 Set-Location $Root\..\
 
-$CMake = "C:\Users\abu_s\.pico-sdk\cmake\v3.31.5\bin\cmake.exe"
-$Ninja = "C:/Users/abu_s/.pico-sdk/ninja/v1.12.1/ninja.exe"
+$CMake = "$env:USERPROFILE\.pico-sdk\cmake\$env:PICO_CMAKE_VERSION\bin\cmake.exe"
+$Ninja = "$env:USERPROFILE/.pico-sdk/ninja/$env:PICO_NINJA_VERSION/ninja.exe"
 
 if ($Clean) {
     Write-Output "Removing build directory..."
