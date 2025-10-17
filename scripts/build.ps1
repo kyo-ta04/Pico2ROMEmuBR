@@ -15,7 +15,31 @@ $Root = Split-Path -Parent $MyInvocation.MyCommand.Definition
 Set-Location $Root\..\
 
 $ConfigureScript = Join-Path $PSScriptRoot "configure.ps1"
-$Ninja = "$env:USERPROFILE/.pico-sdk/ninja/$env:PICO_NINJA_VERSION/ninja.exe"
+# PICO_TOOLS_PATHが設定されていなければ、デフォルトのパスを使用
+$PicoToolsPath = if ($env:PICO_TOOLS_PATH) { $env:PICO_TOOLS_PATH } else { Join-Path $env:USERPROFILE ".pico-sdk" }
+
+# Ninjaバージョンの自動検出
+function Get-NinjaVersion {
+    $ninjaPath = Join-Path $PicoToolsPath "ninja"
+    if (Test-Path $ninjaPath) {
+        $versions = Get-ChildItem -Path $ninjaPath -Directory |
+                   Where-Object { $_.Name -match "^v\d+\.\d+\.\d+$" } |
+                   Sort-Object Name -Descending
+        if ($versions.Count -gt 0) {
+            return $versions[0].Name
+        }
+    }
+    return $null
+}
+
+$NINJA_VERSION = Get-NinjaVersion
+if (-not $NINJA_VERSION) {
+    $NINJA_VERSION = if ($env:PICO_NINJA_VERSION) { $env:PICO_NINJA_VERSION } else { "v1.12.1" }
+    Write-Warning "Could not auto-detect Ninja version. Using version $NINJA_VERSION"
+}
+
+Write-Output "Detected Ninja version: $NINJA_VERSION"
+$Ninja = Join-Path $PicoToolsPath "ninja\$NINJA_VERSION\ninja.exe"
 
 if ($Clean) {
     Write-Output "Cleaning build/ ..."
