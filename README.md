@@ -101,3 +101,17 @@ PowerShell からプロジェクトルートで:
 ```
 
 成功すると `build` ディレクトリに Ninja ビルドファイルが生成され、`./.pico-sdk/ninja/v1.12.1/ninja.exe -C build` でビルドできます。
+
+## 開発者向け: ワンコマンドでビルド
+
+簡単に configure と build を実行するスクリプトを追加しました:
+
+PowerShell で実行:
+
+```powershell
+./scripts/build.ps1        # configure (必要なら) -> build
+./scripts/build.ps1 -Clean # build ディレクトリを削除して再生成->build
+./scripts/build.ps1 -NoConfigure # configure を飛ばしてビルドのみ実行
+```
+
+スクリプトは pico-sdk の ninja と configure スクリプトを利用します。
