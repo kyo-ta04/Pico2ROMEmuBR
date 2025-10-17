@@ -82,25 +82,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-## 開発者向け: 簡単な CMake configure スクリプト
-
-リポジトリ内に `scripts/configure.ps1` を追加しました。Windows 上で Pico SDK の ninja を明示して CMake の configure を実行するヘルパースクリプトです。
-
-使い方:
-
-PowerShell からプロジェクトルートで:
-
-```powershell
-./scripts/configure.ps1
-```
-
-クリーンして再生成する場合:
-
-```powershell
-./scripts/configure.ps1 -Clean
-```
-
-成功すると `build` ディレクトリに Ninja ビルドファイルが生成され、`./.pico-sdk/ninja/v1.12.1/ninja.exe -C build` でビルドできます。
 
 ## 開発者向け: ワンコマンドでビルド
 
