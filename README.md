@@ -1,4 +1,4 @@
-# Pico2ROMEmu
+# Pico2ROMEmu Tom's SBC
 ![Pico2ROMEmuBR](./IMG/Pico2ROMEmuBR_title_img.jpg)
 このプロジェクトは Raspberry Pi Pico2を使用した簡単で高速なROMエミュレータです(バイナリはSuper AKI-80用) 
 [English Readme](./README.en.md)
