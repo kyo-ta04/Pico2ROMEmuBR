@@ -8,7 +8,7 @@
 - Raspberry Pi Pico2 (RP2350)及び互換ボード専用です。
 - Super AKI-80、Tom's SBC(CP/M machine - Grant Searle)、68k-nanoで動作しました。
 - Pico2(電源3.3V)と Z80/MC68000ベースの SBC(電源5V)を直結しています。
-- ROMエミュレーションは27256 DIP-28ピンですが8kByte、Super AKI-80用ROM-BASIC。
+- ROMエミュレーションは27256 DIP-28ピンですが容量8kByte、Super AKI-80用ROM-BASIC。
   - 32KByteに対応 -> [32KB ブランチ](https://github.com/kyo-ta04/Pico2ROMEmuBR/tree/32KB)
 - リセット出力(オープンコレクタ)、クロック出力 20/12/10MHz、UART-USB変換、電源供給(5V)機能あり。
 - Super AKI-80は最小限の部品＆改造なし、これ一つだけで動作させることができます。
@@ -50,6 +50,19 @@
 - ![Pico2ROMEmuBR_RUN_img](./IMG/Pico2ROMEmuBR_RUN_img.png)
   - 上記は実行例画像です。
 
+## 開発者向け: ワンコマンドで build作成
+
+簡単に configure と build を実行するスクリプトを追加しました:
+
+PowerShell で実行:
+
+```powershell
+./scripts/build.ps1        # configure (必要なら) -> build
+./scripts/build.ps1 -Clean # build ディレクトリを削除して再生成->build
+./scripts/build.ps1 -NoConfigure # configure を飛ばしてビルドのみ実行
+```
+
+スクリプトは pico-sdk の ninja と configure スクリプトを利用します。
 ## ライセンス
 - 本プロジェクトのソースコードは MIT ライセンスです。
 - ROMデータ部分は元サイトおよび改編元など、各々のライセンスを参照してください。
@@ -66,18 +79,3 @@
 - @shippoiincho さん、 @kondo_pc88 さん、 @TororoLab さん、 @I_HaL さん、 @antarcticlion さん、 @GAPUX さん、 @Tanuki_Bayashin さん、 @applesorce さん、@W88DodPECuThLOl さんを始めとしたアドバイス、イイね、RPしていただいた皆様。
 - Raspberry Pi Pico SDK 開発者の皆様
 - 本プロジェクトに関わる全ての方々
-
-
-## 開発者向け: ワンコマンドで build作成
-
-簡単に configure と build を実行するスクリプトを追加しました:
-
-PowerShell で実行:
-
-```powershell
-./scripts/build.ps1        # configure (必要なら) -> build
-./scripts/build.ps1 -Clean # build ディレクトリを削除して再生成->build
-./scripts/build.ps1 -NoConfigure # configure を飛ばしてビルドのみ実行
-```
-
-スクリプトは pico-sdk の ninja と configure スクリプトを利用します。
