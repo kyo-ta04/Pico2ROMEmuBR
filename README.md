@@ -1,6 +1,5 @@
 # Pico2ROMEmu
 ![Pico2ROMEmuBR](./IMG/Pico2ROMEmuBR_title_img.jpg)
-<!-- [Pico2ROMEmuBR](./IMG/Pico2ROMEmuPCB_68nano_img_2_1.jpg) -->
 このプロジェクトは Raspberry Pi Pico2を使用した簡単で高速なROMエミュレータです   
 [English Readme](./README.en.md)
 ## 特徴
