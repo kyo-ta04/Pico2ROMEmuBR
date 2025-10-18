@@ -1,2 +1,54 @@
-build
-!.vscode/*
+# ビルド成果物
+/build/
+generated/
+
+# バイナリ / リンカ成果物
+*.uf2
+*.bin
+*.hex
+*.elf
+*.dis
+*.map
+!/*.uf2
+
+# CMake / Ninja / ビルドシステム
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+build.ninja
+.ninja_log
+
+# オブジェクト / 一時ファイル
+*.o
+*.obj
+*.d
+*.lst
+
+# Pico/PIO 生成ヘッダ
+**/*.pio.h
+
+# Python
+__pycache__/
+*.py[cod]
+env/
+venv/
+.venv/
+
+# エディタ / IDE
+.vscode/
+!/.vscode/
+!/.vscode/settings.json
+*.code-workspace
+
+# OS / エディタ固有のゴミファイル
+Thumbs.db
+desktop.ini
+*~
+*.swp
+*.tmp
+*.log
+
+# ユーザーが意図的に含める場合は除外項目を解除してください
+# 例: リポジトリに .vscode 設定を含めたい場合は下行の '!' 行を追加できます
+!/.vscode/settings.json
