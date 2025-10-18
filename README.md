@@ -3,7 +3,7 @@
 このプロジェクトは Raspberry Pi Pico2を使用した簡単で高速なROMエミュレータです   
 [English Readme](./README.en.md)
 ## 特徴
-- Pico2ROMEmuを2台使用して 16bit(27C256 x2) MC68HC000 12MHzの 68k-nanogが動作しました。
+- Pico2ROMEmuを2台使用して 16bit(27C256 x2) MC68HC000 12MHzの 68k-nanoが動作しました。
 - 起動時にLower(下位)/Upper(上位)バイトのROMイメージを選択できます。
 - Pico2ROMEmuについて詳しくは[Pico2ROMEmu](https://github.com/kyo-ta04/Pico2ROMEmuBR)をご覧ください。
 
