@@ -8,7 +8,6 @@
 #include "hardware/pll.h"
 #include "pico/multicore.h"
 #include "rom_emu.pio.h"
-// #include "rom_basic_const.c" 
 #include "saki80mon041_const.c" 
 
 #define DATA_PINS_BASE 2    // GP2～GP9 (D0-D7 8bit)
@@ -27,7 +26,6 @@
 
 #define FLAG_VALUE 123
 
-// #define ROM_SIZE 8192   // 8KバイトのROMサイズ
 #define ROM_SIZE 32768      // 32KバイトのROMサイズ     
 
 // PIO初期化
@@ -50,14 +48,8 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {
 }
 
 
-// rom_basic[]をrom_data[]にコピーする初期化ルーチン
 // rom_saki80mon041[]をrom_data[]にコピーする初期化ルーチン
 void init_rom_basic_code(void) {
-//    // z80_binary[]の内容をrom_data[]の先頭にコピー
-//    memcpy(rom_data, rom_basic, sizeof(rom_basic));
-//    // 残りのrom[]を0xFFで埋める（8Kバイトまで）
-//    memset(rom_data + sizeof(rom_basic), 0xFF, ROM_SIZE - sizeof(rom_basic));
-
     // z80_binary[]の内容をrom_data[]の先頭にコピー
     memcpy(rom_data, rom_saki80mon041, sizeof(rom_saki80mon041));
     // 残りのrom[]を0xFFで埋める（8Kバイトまで）
