@@ -8,7 +8,7 @@
 #include "hardware/pll.h"
 #include "pico/multicore.h"
 #include "rom_emu.pio.h"
-#include "rom_mon_const.c" 
+#include "rom_rom_const.c" 
 
 #define DATA_PINS_BASE 2    // GP2～GP9 (D0-D7 8bit)
 #define ADDR_PINS_BASE 10   // GP10～GP24 (A0-A14 15bit)
@@ -49,12 +49,12 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {
 }
 
 
-// rom_saki80mon041[]をrom_data[]にコピーする初期化ルーチン
+// rom_rom[]をrom_data[]にコピーする初期化ルーチン
 void init_rom_basic_code(void) {
-    // z80_binary[]の内容をrom_data[]の先頭にコピー
-    memcpy(rom_data, rom_mon, sizeof(rom_mon));
+    // rom_rom[]の内容をrom_data[]の先頭にコピー
+    memcpy(rom_data, rom_rom, sizeof(rom_rom));
     // 残りのrom[]を0xFFで埋める（8Kバイトまで）
-    memset(rom_data + sizeof(rom_mon), 0xFF, ROM_SIZE - sizeof(rom_mon));
+    memset(rom_data + sizeof(rom_rom), 0xFF, ROM_SIZE - sizeof(rom_rom));
 }
 
 
@@ -146,11 +146,11 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
     init_rom_basic_code(); // rom_basic_const.cから初期化
     sleep_ms(3000); // 3秒待機
     // [Enter]入力を待つ
-    printf("\n[Enter] を押すとPico2 ROMエミュレータ(32KByte)のテスト開始します...\n");
+    printf("\n[Enter] を押すとPico2 ROMエミュレータ(32KB)のテスト開始します...\n");
     while (true) {
         int c = getchar_timeout_us(100000); // 100msタイムアウト
         if (c == '\r') { // [Enter]（CR）が入力されたら開始
-            printf("Pico2 ROMエミュレータのテスト開始(Tom's SBC - MONITOR.HEX)...\n");
+            printf("Pico2 ROMエミュレータ(32KB)のテスト開始(Tom's SBC - ROM.HEX)...\n");
             break;
         }
     }
