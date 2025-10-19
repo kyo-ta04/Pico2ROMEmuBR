@@ -11,7 +11,7 @@
 #include "rom_mon_const.c" 
 
 #define DATA_PINS_BASE 2    // GP2～GP9 (D0-D7 8bit)
-#define ADDR_PINS_BASE 10   // GP10～GP22 (A0-A12 13bit)
+#define ADDR_PINS_BASE 10   // GP10～GP24 (A0-A14 15bit)
 #define RESETOUT_PIN 25     // GP25 (リセット出力)
 
 #define OE_PIN 26           // GP26 Output Enable (OE#)
@@ -27,7 +27,7 @@
 
 #define FLAG_VALUE 123
 
-#define ROM_SIZE 8192
+#define ROM_SIZE 32768      // 32KバイトのROMサイズ     
 
 // PIO初期化
 PIO pio = pio0;
@@ -49,7 +49,7 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {
 }
 
 
-// rom_basic[]をrom_data[]にコピーする初期化ルーチン
+// rom_saki80mon041[]をrom_data[]にコピーする初期化ルーチン
 void init_rom_basic_code(void) {
     // z80_binary[]の内容をrom_data[]の先頭にコピー
     memcpy(rom_data, rom_mon, sizeof(rom_mon));
@@ -65,7 +65,7 @@ void set_qspi_clock_divider(uint32_t sys_clock_khz, uint32_t qspi_max_khz) {
 }
 
 __attribute__((noinline)) int __time_critical_func(main)(void) {
-    uint32_t sysclk = 280 * 1000;           // Pico2 システムクロック 280/320/360MHz 
+    uint32_t sysclk = 360 * 1000;           // Pico2 システムクロック 280/320/360MHz 
     vreg_set_voltage(VREG_VOLTAGE_1_30);    // 電圧を1.3Vに設定
     sleep_ms(100);                          // 電圧安定のための待機
     set_sys_clock_khz(sysclk, true);        // 高速動作
@@ -96,8 +96,8 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
     for (int i = 0; i < 8; i++) {
         pio_gpio_init(pio, DATA_PINS_BASE + i);
     }
-    // GP8-22：入力(13ピン A0-A12)
-    for (int i = 0; i < 13; i++) {
+    // GP8-22：入力(13ピン A0-A14)
+    for (int i = 0; i < 15; i++) {
         pio_gpio_init(pio, ADDR_PINS_BASE + i);
     }
     
@@ -146,7 +146,7 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
     init_rom_basic_code(); // rom_basic_const.cから初期化
     sleep_ms(3000); // 3秒待機
     // [Enter]入力を待つ
-    printf("\n[Enter] を押すとPico2 ROMエミュレータのテスト開始します...\n");
+    printf("\n[Enter] を押すとPico2 ROMエミュレータ(32KByte)のテスト開始します...\n");
     while (true) {
         int c = getchar_timeout_us(100000); // 100msタイムアウト
         if (c == '\r') { // [Enter]（CR）が入力されたら開始
@@ -167,9 +167,9 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
         printf("コア0ではすべてうまくいきました!\n");
     }
 
-   uint32_t tim = 1000; 
-   printf("リセット解除まで - %d ms\n", tim);  
-   pio_sm_put(pio, sm2, tim);
+    uint32_t tim = 1000; 
+    printf("リセット解除まで - %d ms\n", tim);  
+    pio_sm_put(pio, sm2, tim);
 
     // メインループ
     printf("UART-USBブリッジ動作開始...\n");
