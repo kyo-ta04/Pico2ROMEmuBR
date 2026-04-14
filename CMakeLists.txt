@@ -60,6 +60,7 @@ target_include_directories(Pico2ROMEmuBR PRIVATE
 # Add any user requested libraries
 target_link_libraries(Pico2ROMEmuBR 
         hardware_pio
+        hardware_pwm
         )
 
 pico_add_extra_outputs(Pico2ROMEmuBR)

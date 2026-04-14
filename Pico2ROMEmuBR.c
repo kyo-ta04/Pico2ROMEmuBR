@@ -6,6 +6,8 @@
 #include "hardware/clocks.h"
 #include "hardware/uart.h"
 #include "hardware/pll.h"
+#include "hardware/pwm.h"
+#include "hardware/timer.h"
 #include "pico/multicore.h"
 #include "rom_emu.pio.h"
 #include "rom_basic_const.c" 
@@ -32,6 +34,11 @@
 PIO pio = pio0;
 uint sm = 0;
 
+// 現在設定されているクロック周波数
+uint32_t current_clk_freq = 0;
+
+// リセット出力関連
+volatile bool reset_released = false;
 
 uint8_t rom_data[ROM_SIZE] __attribute__((section(".data")));
 
@@ -56,11 +63,45 @@ void init_rom_basic_code(void) {
     memset(rom_data + sizeof(rom_basic), 0xFF, ROM_SIZE - sizeof(rom_basic));
 }
 
+// リセット解除タイマーコールバック
+int64_t reset_timer_callback(alarm_id_t id, void *user_data) {
+    gpio_put(RESETOUT_PIN, 0);  // GP25をLow（リセット解除）
+    reset_released = true;
+    printf("リセット解除実行\n");
+    return 0;
+}
+
 
 // QSPIクロックを調整する関数
 void set_qspi_clock_divider(uint32_t sys_clock_khz, uint32_t qspi_max_khz) {
     uint32_t divider = (sys_clock_khz + qspi_max_khz - 1) / qspi_max_khz;
     clock_configure(clk_peri, 0, CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLKSRC_PLL_SYS, sys_clock_khz * 1000, sys_clock_khz * 1000 / divider);
+}
+
+// PWM初期化関数（表示周波数の2倍を出力）
+void init_clk_pwm(uint32_t display_freq_hz) {
+    uint slice_num = pwm_gpio_to_slice_num(CLKOUT_PIN);
+    uint channel = pwm_gpio_to_channel(CLKOUT_PIN);
+    
+    gpio_set_function(CLKOUT_PIN, GPIO_FUNC_PWM);
+    
+    // 表示周波数の2倍でPWMを設定
+    uint32_t actual_freq_hz = display_freq_hz * 2;
+    
+    // wrap=1固定で分周器計算
+    // PWM周波数 = sys_clock / ((wrap + 1) * clock_div)
+    // actual_freq = 360MHz / (2 * clock_div)
+    // clock_div = 360MHz / (2 * actual_freq)
+    float clock_div = (float)(360 * 1000 * 1000) / (actual_freq_hz * 2);
+    
+    pwm_config cfg = pwm_get_default_config();
+    pwm_config_set_clkdiv(&cfg, clock_div);
+    pwm_config_set_wrap(&cfg, 1);
+    pwm_init(slice_num, &cfg, true);
+    pwm_set_chan_level(slice_num, channel, 1); // 50%デューティサイクル
+    
+    // 表示用周波数を保存
+    current_clk_freq = display_freq_hz;
 }
 
 __attribute__((noinline)) int __time_critical_func(main)(void) {
@@ -83,14 +124,6 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
     uint offset = pio_add_program(pio, &oe_address_control_program);
     pio_sm_config c = oe_address_control_program_get_default_config(offset);
 
-    uint sm1 = 1; // sm1を使用
-    uint offset1 = pio_add_program(pio, &clk_out_program);
-    pio_sm_config c1 = clk_out_program_get_default_config(offset1);
- 
-    uint sm2 = 2; // sm2を使用
-    uint offset2 = pio_add_program(pio, &reset_out_program);
-    pio_sm_config c2 = reset_out_program_get_default_config(offset2);
-
     // GP0-7：出力
     for (int i = 0; i < 8; i++) {
         pio_gpio_init(pio, DATA_PINS_BASE + i);
@@ -100,7 +133,11 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
         pio_gpio_init(pio, ADDR_PINS_BASE + i);
     }
     
-    pio_gpio_init(pio, RESETOUT_PIN); // リセット出力ピン(GP25)の初期化
+    // リセット出力ピン(GP25)をGPIOで初期化
+    gpio_init(RESETOUT_PIN);
+    gpio_set_dir(RESETOUT_PIN, GPIO_OUT);
+    gpio_put(RESETOUT_PIN, 1);  // リセット状態（High）
+    
     pio_gpio_init(pio, OE_PIN); // OEピン(GP26)の初期化
     pio_gpio_init(pio, CS_PIN); // CSピン(GP27)の初期化
     pio_gpio_init(pio, CLKOUT_PIN); // CLK出力ピン(GP28)の初期化
@@ -117,31 +154,14 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
     sm_config_set_in_shift(&c, false, false, 0); // ISR（入力シフトレジスタ）のシフト方向
     sm_config_set_out_shift(&c, true, false, 0); // OSR（出力シフトレジスタ）のシフト方向
 
-    // sm1 のクロックを設定 
-    sm_config_set_set_pins(&c1, CLKOUT_PIN, 1); // GP28をクロック出力ピンとして設定
-    pio_sm_set_consecutive_pindirs(pio, sm1, CLKOUT_PIN, 1, true); // CLKOUTピンの初期化
-
-    sm_config_set_clkdiv(&c1, (float)sysclk / 40000.0f); //  40MHz : 20MHz(10MHz 9600bps)
-
-     // sm2 のリセット出力を設定
-    sm_config_set_set_pins(&c2, RESETOUT_PIN, 1); // GP25をリセット出力ピンとして設定
-    pio_sm_set_consecutive_pindirs(pio, sm2, RESETOUT_PIN, 1, true); // リセット出力ピンの初期化 
-    sm_config_set_clkdiv(&c2, sysclk / 10); //  10kHz (リセット出力のクロック)
-    
-    // sm2 のリセット出力プログラムをロード
-    pio_sm_init(pio, sm2, offset2, &c2);
-    pio_sm_set_pins(pio, sm2, 1); // ピン値を1（Hi）に設定（set_pinsのベースからのビット値）
-    pio_sm_set_enabled(pio, sm2, true);
-
     // sm のROMエミュプログラムをロード
     pio_sm_init(pio, sm, offset, &c);
     pio_sm_set_enabled(pio, sm, true);
 
     sleep_ms(1); // 1ms待機
 
-    // sm1 のクロック出力プログラムをロード
-    pio_sm_init(pio, sm1, offset1, &c1);
-    pio_sm_set_enabled(pio, sm1, true);
+    // PWM クロック出力初期化 (10MHz)
+    init_clk_pwm(10 * 1000 * 1000);
     init_rom_basic_code(); // rom_basic_const.cから初期化
     sleep_ms(3000); // 3秒待機
     // [Enter]入力を待つ
@@ -155,7 +175,13 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
     }
     printf("\nPico2 システムクロック(1.3V) - %dMHz\n", sysclk / 1000);
     printf("リセット出力状態 - ON\n");
-    printf("クロック出力(20MHz) 10MHz:9600bps - ON\n");
+    if (current_clk_freq >= 1000000) {
+        printf("クロック出力(PWM-%dMHz) - ON\n", current_clk_freq / 1000000);
+    } else if (current_clk_freq >= 1000) {
+        printf("クロック出力(PWM-%dKHz) - ON\n", current_clk_freq / 1000);
+    } else {
+        printf("クロック出力(PWM-%dHz) - ON\n", current_clk_freq);
+    }
     printf("ROMエミュレータ起動 - core1\n");
     multicore_launch_core1(core1_entry);
     uint32_t g = multicore_fifo_pop_blocking();
@@ -166,9 +192,9 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
         printf("コア0ではすべてうまくいきました!\n");
     }
 
-    uint32_t tim = 1000; 
-    printf("リセット解除まで - %d ms\n", tim);  
-    pio_sm_put(pio, sm2, tim);
+    uint32_t reset_delay_ms = 1000;
+    printf("リセット解除まで - %d ms\n", reset_delay_ms);
+    add_alarm_in_ms(reset_delay_ms, reset_timer_callback, NULL, false);
 
     // メインループ
     printf("UART-USBブリッジ動作開始...\n");
