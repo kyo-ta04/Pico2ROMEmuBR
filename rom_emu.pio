@@ -1,32 +1,131 @@
 ; rom_emu.pio 
-.program oe_address_control
+
+
+.define MRWR_Pin 25
+.define MRRD_Pin 26
+.define A15_Pin  27 ; CE#
+
+
+; MRWR# (WR# RAM:27pin) GP25:IN
+; MRRD# (OE# ROM:22pin) GP26:IN
+; A15   (CE# ROM:20pin) GP27:IN
+
+.program trg_rw
+; MRRD#/MRWR# の立ち下がりを検出し、IRQ(0)を発生させる
+; 引数 in_base で MRWR#(GP25) - MRRD#(GP26) を指定
 .wrap_target
 loop1:
-    wait 0 gpio 27        ; 1: CS有効待ち
-    jmp pin loop1         ; 2: OE無効なら loop1 へ
-    in pins, 13           ; 3: GP10-22(A0-A12) 13ピン読込
+    mov isr, ! null       ; ISR = 0xFFFFFFFF
+    wait 0 gpio A15_Pin   ; A15 = 0 待ち(アドレス0-7FFFH)
+    in pins, 2            ; MRWR#(GP25) - MRRD#(GP26) 読取り
+    mov y, ! isr          ; y = MRWR#/MRRD# 信号の反転 (どちらかがLowならy>0)
+    jmp !y loop1          ; y==0 (RD=1, WR=1) ならループ継続。どちらかがLowになるまで待つ
+    irq 0                 ; トリガ発生
+loop2:
+    mov isr, ! null
+    in pins, 2
+    mov y, ! isr
+    jmp y-- loop2         ; y!=0 (どちらかがLow) なら待機。両方がHigh（アイドル）に戻るまで待つ
+.wrap
+
+;
+; ---- m_emu ----
+; sm_config_set_jmp_pinで MRRD#(GP26)を指定
+;
+.program m_emu
+    mov isr, null         ; ISRクリア
+.wrap_target
+loop:
+    wait 1 irq 0          ; trg_rw からの通知待ち(irqクリアあり)
+    in pins, 30           ; GPIO全ピン(GP0-29)30ピン読込(auto push)
+    jmp pin loop          ; MRRD#=1 メモリライトなので終了、loopへ
+                          ; メモリリード
+    mov pindirs, ~null    ; D0-7(GP2-9)を出力モード
+    out pins, 8           ; データ出力(auto pull)
+    wait 1 gpio MRRD_Pin  ; MRRD#(OE#:GP26=1)無効待ち
+    mov pindirs, null     ; D0-7(GP2-9)を入力モード
+ .wrap
+
+
+;============================================================================
+
+
+;
+; ---- trg_r ----
+;
+.program trg_r
+; MRRD#の立ち下がりを検出し、IRQ(0)を発生させる
+.wrap_target
+loop1:
+    wait 0 gpio A15_Pin   ; A15 = 0 待ち
+    jmp pin loop1         ;  sm_config_set_jmp_pin(&c, MRRD_PIN);  MRRD#(GP26)をJMPピンとして設定
+    irq 0                 ; MRRD#=0 トリガ発生
+loop2:
+    jmp pin loop1         ; MRRD#=1 なら終了
+    jmp loop2
+.wrap
+
+
+
+;
+; ---- m_test1 ---- OK
+;
+.program m_test1
+    mov isr, null         ; ISRクリア
+.wrap_target
+loop:
+    wait 0 gpio A15_Pin   ; 1: A15=0(CS#：GP27=0)待ち
+    jmp pin loop          ; 2: MRRD# (OE#:GP26=1) 無効なら loop へ
+    in pins, 30           ; 3: GPIO全ピン GP0-29(A0-A12) 30ピン読込
     push                  ; 4: アドレスをプッシュ
     pull                  ; 5: データをプル
     mov pindirs, ~null    ; 6: GP0-7を出力モード
     out pins, 8           ; 7: データ出力
-    wait 1 gpio 26        ; 8: OE無効待ち
+    wait 1 gpio MRRD_Pin  ; 8: MRRD#(OE#:GP26=1)無効待ち
     mov pindirs, null     ; 9: GP0-7を入力モード
-.wrap
+ .wrap
 
-.program clk_out            ; クロック 1/2の周波数を出力 (GP28)
-.wrap_target
-    set pins, 1   ; Turn on
-    set pins, 0   ; Turn off
-.wrap
 
-.program reset_out          ; リセット 指定時間(ms)High出力 (GP25)
-    set pins, 1
-.wrap_target
-    pull
-    mov x,osr
-    set pins, 1             ; Reset ON (Turn High)
-loop:
-    nop [1]
-    jmp x-- loop [7]
-    set pins, 0             ; Reset OFF (Turn Low)
-.wrap
+
+;.program trg_rw2
+;; MRWR#/MRRD#の立ち下がりを検出し、IRQ(0)を発生させる
+;.wrap_target
+;loop1:
+;    mov isr, ! null       ; ISR = 0xFFFFFFFF
+; ;   wait 0 gpio A15_Pin   ; A15 = 0 待ち
+;    in pins, 2            ; 引数 in_base で MRWR#(GP25)を指定
+;    mov y, ! isr          ; y = MRWR#/MRRD# 信号の反転 (どちらかがLowならy>0)
+;    jmp !y loop1          ; y==0 (RD=1, WR=1) ならループ継続。どちらかがLowになるまで待つ
+;    irq 0                 ; トリガ発生
+;loop2:
+;    mov isr, ! null
+;    in pins, 2
+;    mov y, ! isr
+;    jmp y-- loop2         ; y!=0 (どちらかがLow) なら待機。両方がHigh（アイドル）に戻るまで待つ
+;.wrap
+
+
+;loop:
+;    wait 1 irq 0          ; trg_rw2 からの通知待ち
+;    in pins, 30           ; 全GPIO(0..29)取得して  Push
+;    push
+;    jmp pin loop          ; MRRD# (GP26)=1 WRITEなのでloopへ
+;    ; --- READ 処理 ---
+;;    mov pindirs, ~null    ; D0-D7を出力モード
+;    pull                  ; データをプル
+;    out pins, 8           ; Pullしてデータバス(GP0-7)へ出力
+;    wait 1 gpio MRRD_Pin  ; MRRD# (GP26)=1 無効待ち
+;;    mov pindirs, null     ; 9: GP0-7を入力モード
+;.wrap
+
+;    wait 0 gpio 27        ; 1: CS有効待ち
+;    jmp pin loop1         ; 2:  OE無効なら loop1 へ
+;    in pins, 13           ; 3: GP10-22(A0-A12) 13ピン読込
+;    push                  ; 4: アドレスをプッシュ
+;    pull                  ; 5: データをプル
+;    mov pindirs, ~null    ; 6: GP0-7を出力モード
+;    out pins, 8           ; 7: データ出力
+;    wait 1 gpio 26        ; 8: OE無効待ち
+;    mov pindirs, null     ; 9: GP0-7を入力モード
+; .wrap
+

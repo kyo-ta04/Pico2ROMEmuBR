@@ -14,25 +14,33 @@
 
 #define DATA_PINS_BASE 2    // GP2～GP9 (D0-D7 8bit)
 #define ADDR_PINS_BASE 10   // GP10～GP22 (A0-A12 13bit)
-#define RESETOUT_PIN 25     // GP25 (リセット出力)
+// #define RESETOUT_PIN 25     // GP25 (リセット出力)
 
-#define OE_PIN 26           // GP26 Output Enable (OE#)
-#define CS_PIN 27           // GP27 Chip Select (CS#)
+#define MRWR_PIN 25         // GP25  メモリライト (MRWR#)
+// #define OE_PIN 26           // GP26 Output Enable (OE#)
+// #define CS_PIN 27           // GP27 Chip Select (CS#)
+#define MRRD_PIN 26         // GP26 メモリリード (MRRD#)
+#define A15_PIN 27          // GP27 A15 アドレス (A15)
 #define CLKOUT_PIN 28       // GP28 (クロック出力)
 
 // UART0の設定
 #define UART_ID uart0
-#define BAUD_RATE 9600
+// #define BAUD_RATE 9600 // AKI-80 10MHz 9,600bps
+// #define BAUD_RATE 4800  // AKI-80 5MHz 4,800bps
+#define BAUD_RATE 2400  // AKI-80 2.5MHz 2,400bps
 #define UART_TX_PIN 0
 #define UART_RX_PIN 1
 
 #define FLAG_VALUE 123
 
-#define ROM_SIZE 8192
+#define MEMORY_SIZE 8192
 
 // PIO初期化
 PIO pio = pio0;
-uint sm = 0;
+// uint sm = 0;
+uint sm_trg = 0;
+uint sm_emu = 1;
+
 
 // 現在設定されているクロック周波数
 uint32_t current_clk_freq = 0;
@@ -40,32 +48,65 @@ uint32_t current_clk_freq = 0;
 // リセット出力関連
 volatile bool reset_released = false;
 
-uint8_t rom_data[ROM_SIZE] __attribute__((section(".data")));
+
+static uint8_t test_data[] = { // test program for debug
+ 0x3E, 0x00,       // LD A, 0x00
+ 0x32, 0x10, 0x00, // LD (0x0010), A
+ 0x3A, 0x10, 0x00, // LD A, (0x0010)
+ 0x3C,             // INC A
+ 0xC3, 0x02, 0x00  // JP 0x0002
+};
+
+static uint8_t memory[MEMORY_SIZE]  = {[0 ... MEMORY_SIZE - 1] = 0xFF};
+
+// rom_basic[]をrom_data[]にコピーする初期化ルーチン
+void init_rom_basic_code(void) {
+//    memcpy(memory, test_data, sizeof(test_data));
+
+    // z80_binary[]の内容をrom_data[]の先頭にコピー
+    memcpy(memory, rom_basic, sizeof(rom_basic));
+    // 残りのrom[]を0xFFで埋める（8Kバイトまで）
+    memset(memory + sizeof(rom_basic), 0xFF, MEMORY_SIZE - sizeof(rom_basic));
+}
 
 // コア1のエントリポイント
 // core1_entry()はPIOの状態マシンを実行し、ROMデータを送信する  
-__attribute__((noinline)) void __time_critical_func(core1_entry)(void) {
+__attribute__((noinline)) void __time_critical_func(core1_entry)(void) {;
+    uint count = 0;
+    uint8_t data_byte = 0;
+
     multicore_fifo_push_blocking(FLAG_VALUE);
     uint32_t g = multicore_fifo_pop_blocking();
     while (true) {
-        uint32_t address = pio_sm_get_blocking(pio, sm);    // アドレスを取得
-        uint32_t data = rom_data[address];                  // 13bitアドレスに対応
-        pio_sm_put(pio, sm, data);                          // データを送信
+//        uint32_t address = pio_sm_get_blocking(pio, sm_emu);    // アドレスを取得
+//        uint32_t data = rom_data[address];                  // 13bitアドレスに対応
+//        pio_sm_put(pio, sm_emu, data);                          // データを送信
+        const uint32_t mrwr_mask = (1u << MRWR_PIN);
+// GP0-29(RX0:GP0,TX0:GP1,D0-D7:GP2-9,A0-A12:GP10-22,MRWR#:GP25,MRRD#:GP26,A15:GP27,CLK:GP28)
+        uint32_t agpio = pio_sm_get_blocking(pio, sm_emu);          // GPIO0-29の値を取得
+        uint32_t adrs_word = (agpio >> ADDR_PINS_BASE) & 0x1FFF;    // A0-A12の13ビットを抽出
+        if (!(agpio & mrwr_mask)) {  // MRWR=0 メモリーライト
+            data_byte = (uint8_t)(agpio >> DATA_PINS_BASE); // D0-D7の8ビットを抽出
+            memory[adrs_word] = data_byte;
+        } else { // MRWR=1 メモリーリード
+            data_byte = memory[adrs_word];                         // 13bitアドレスに対応
+            pio_sm_put(pio, sm_emu, data_byte);                     // データを送信
+        } 
+        count++;
+        if (false) { // デバッグ用 Z80_freq = 20  (20Hz) で使用する
+            printf("%05u BUS:%08X ADRS:%04X DATA:%02X  A15:%d MRRD:%d MRWR:%d\n",
+                count, agpio, adrs_word, (uint)data_byte, //);
+                (agpio >> A15_PIN) & 1, (agpio >> MRRD_PIN) & 1, (agpio >> MRWR_PIN) & 1
+            );
+        }
     }
 }
 
 
-// rom_basic[]をrom_data[]にコピーする初期化ルーチン
-void init_rom_basic_code(void) {
-    // z80_binary[]の内容をrom_data[]の先頭にコピー
-    memcpy(rom_data, rom_basic, sizeof(rom_basic));
-    // 残りのrom[]を0xFFで埋める（8Kバイトまで）
-    memset(rom_data + sizeof(rom_basic), 0xFF, ROM_SIZE - sizeof(rom_basic));
-}
 
 // リセット解除タイマーコールバック
 int64_t reset_timer_callback(alarm_id_t id, void *user_data) {
-    gpio_put(RESETOUT_PIN, 0);  // GP25をLow（リセット解除）
+//    gpio_put(RESETOUT_PIN, 0);  // GP25をLow（リセット解除）
     reset_released = true;
     printf("リセット解除実行\n");
     return 0;
@@ -80,6 +121,7 @@ void set_qspi_clock_divider(uint32_t sys_clock_khz, uint32_t qspi_max_khz) {
 
 // PWM初期化関数（表示周波数の2倍を出力）
 void init_clk_pwm(uint32_t display_freq_hz) {
+//    printf("クロック出力(PWM) - 設定中... 表示周波数: %u Hz\n", display_freq_hz);
     uint slice_num = pwm_gpio_to_slice_num(CLKOUT_PIN);
     uint channel = pwm_gpio_to_channel(CLKOUT_PIN);
     
@@ -88,25 +130,74 @@ void init_clk_pwm(uint32_t display_freq_hz) {
     // 表示周波数の2倍でPWMを設定
     uint32_t actual_freq_hz = display_freq_hz * 2;
     
-    // wrap=1固定で分周器計算
-    // PWM周波数 = sys_clock / ((wrap + 1) * clock_div)
-    // actual_freq = 360MHz / (2 * clock_div)
-    // clock_div = 360MHz / (2 * actual_freq)
-    float clock_div = (float)(360 * 1000 * 1000) / (actual_freq_hz * 2);
+    // システムクロックを取得（ハードコードを避ける）
+    uint32_t sys_clock = clock_get_hz(clk_sys);
+    printf("システムクロック: %u Hz\n", sys_clock);
     
+    // PWM周波数 = sys_clock / ((wrap + 1) * clock_div)
+    // 目標: PWM周波数 = actual_freq_hz
+    float total_div = (float)sys_clock / actual_freq_hz;
+//    printf("目標周波数: %u Hz, 必要な総分周比: %.2f\n", actual_freq_hz, total_div);
+    
+    // clock_div を 1.0 から 256.0 の範囲で最適化
+    float clock_div = 1.0f;
+//    uint16_t wrap = (uint16_t)(total_div / clock_div) - 1;
+    uint32_t temp = (total_div / clock_div) - 1;
+    
+    if (temp > 65535) {
+        // wrap が最大値を超える場合、clock_div を増やす
+        clock_div = total_div / 65536.0f;
+        if (clock_div > 256.0f) {
+            clock_div = 256.0f;
+            temp = (total_div / clock_div) - 1;
+            if (temp > 65535) {
+                temp = 65535; // 最低周波数に設定
+            }
+        } else {
+            temp = 65535;
+        }
+    }
+    uint16_t wrap = (uint16_t)temp;
+//    printf("計算結果: total_div=%.2f, clock_div=%.2f, wrap=%u\n", total_div, clock_div, wrap);    
     pwm_config cfg = pwm_get_default_config();
     pwm_config_set_clkdiv(&cfg, clock_div);
-    pwm_config_set_wrap(&cfg, 1);
+    pwm_config_set_wrap(&cfg, wrap);
     pwm_init(slice_num, &cfg, true);
-    pwm_set_chan_level(slice_num, channel, 1); // 50%デューティサイクル
+    pwm_set_chan_level(slice_num, channel, wrap / 2); // 50%デューティサイクル
     
+    printf("PWM設定: 表示周波数=%u Hz, 実際の周波数=%.2f Hz, clock_div=%.2f, wrap=%u\n", display_freq_hz, (float)sys_clock / ((wrap + 1) * clock_div), clock_div, wrap);
     // 表示用周波数を保存
     current_clk_freq = display_freq_hz;
 }
 
+// PWM初期化関数（最低周波数を出力）
+void init_lowest_freq_pwm(void) {
+    uint slice_num = pwm_gpio_to_slice_num(CLKOUT_PIN);
+    uint channel = pwm_gpio_to_channel(CLKOUT_PIN);
+    
+    gpio_set_function(CLKOUT_PIN, GPIO_FUNC_PWM);
+    
+    // システムクロックを取得
+    uint32_t sys_clock = clock_get_hz(clk_sys);
+    
+    // 最低周波数を実現するための設定
+    // wrap = 65535 (最大値)
+    // clock_div = 256 (最大値)
+    // PWM周波数 ≈ sys_clock / ((65535 + 1) * 256) ≈ 7.45Hz (125MHz時)
+    pwm_config cfg = pwm_get_default_config();
+    pwm_config_set_clkdiv(&cfg, 256.0f);  // 分周器を最大に設定
+    pwm_config_set_wrap(&cfg, 65535);     // wrapを最大に設定
+    pwm_init(slice_num, &cfg, true);
+    pwm_set_chan_level(slice_num, channel, 32767);  // 50%デューティサイクル (65535 / 2)
+    
+    // 表示用周波数を保存（最低周波数の場合）
+    current_clk_freq = 7;  // 約7Hzとして保存
+}
+
 __attribute__((noinline)) int __time_critical_func(main)(void) {
-    uint32_t sysclk = 360 * 1000;           // Pico2 システムクロック 280/320/360MHz 
-    vreg_set_voltage(VREG_VOLTAGE_1_30);    // 電圧を1.3Vに設定
+//   uint32_t sysclk = 360 * 1000;           // Pico2 システムクロック 280/320/360MHz 
+    uint32_t sysclk = 150 * 1000;           // Pico2 システムクロック 150MHz 
+//    vreg_set_voltage(VREG_VOLTAGE_1_30);    // 電圧を1.3Vに設定
     sleep_ms(100);                          // 電圧安定のための待機
     set_sys_clock_khz(sysclk, true);        // 高速動作
     set_qspi_clock_divider(sysclk, 133000); // QSPIクロックを133MHz以下に
@@ -121,68 +212,78 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
     gpio_set_function(UART_RX_PIN, GPIO_FUNC_UART);
 
     // PIO初期化
-    uint offset = pio_add_program(pio, &oe_address_control_program);
-    pio_sm_config c = oe_address_control_program_get_default_config(offset);
-
-    // GP0-7：出力
+    // DATA-BUS GP2-9：入出力
     for (int i = 0; i < 8; i++) {
         pio_gpio_init(pio, DATA_PINS_BASE + i);
     }
-    // GP8-22：入力(13ピン A0-A12)
+    // ADDR-BUS GP10-22：入力(13ピン A0-A12)
     for (int i = 0; i < 13; i++) {
         pio_gpio_init(pio, ADDR_PINS_BASE + i);
     }
-    
-    // リセット出力ピン(GP25)をGPIOで初期化
-    gpio_init(RESETOUT_PIN);
-    gpio_set_dir(RESETOUT_PIN, GPIO_OUT);
-    gpio_put(RESETOUT_PIN, 1);  // リセット状態（High）
-    
-    pio_gpio_init(pio, OE_PIN); // OEピン(GP26)の初期化
-    pio_gpio_init(pio, CS_PIN); // CSピン(GP27)の初期化
-    pio_gpio_init(pio, CLKOUT_PIN); // CLK出力ピン(GP28)の初期化
 
-    sm_config_set_in_pins(&c, ADDR_PINS_BASE);
+    // メモリライト MRWR# ピン(GP25:入力)をGPIOで初期化
+    pio_gpio_init(pio, MRWR_PIN); // MRWR#ピン　メモリライト (GP25:入力) の初期化
+    pio_gpio_init(pio, MRRD_PIN); // MRRD#ピン　メモリリード (GP26:入力) の初期化
+    pio_gpio_init(pio, A15_PIN); //  A15ピン (GP27:入力)の初期化
+
+    // SM0: trg_rw (Detection of falling edge on MRRD#/MRWR#
+    uint offset_trg = pio_add_program(pio, &trg_rw_program);
+    pio_sm_config c_trg = trg_rw_program_get_default_config(offset_trg);
+//    sm_config_set_jmp_pin(&c_trg, MRRD_PIN); //  MRRD# (GP26）をJMPピンとして設定
+    sm_config_set_in_pins(&c_trg, MRWR_PIN); // base = GP25 (MRWR#, GP26 (MRRD#))
+//    sm_config_set_in_pins(&c_trg, MRRD_PIN); // base = GP26 (MRRD#)
+    pio_sm_init(pio, sm_trg, offset_trg, &c_trg);
+//    pio_sm_set_enabled(pio, sm_trg, true);
+
+
+    uint offset = pio_add_program(pio, &m_emu_program);
+    pio_sm_config c = m_emu_program_get_default_config(offset);
+    sm_config_set_in_pins(&c, 0);   // GPIO0-29全てを入力として設定
     sm_config_set_out_pins(&c, DATA_PINS_BASE, 8);
-    sm_config_set_jmp_pin(&c, OE_PIN); // GPIO26 OEをJMPピンとして設定
-    
+    sm_config_set_jmp_pin(&c, MRRD_PIN); //  MRRD# (GP26）をJMPピンとして設定
+    pio_sm_set_consecutive_pindirs(pio, sm_emu, DATA_PINS_BASE, 8, false); // D0-7ピン初期化(入力)
 
+    // シフトレジスタの設定(Auto push 30bit/pull 8bit)
+    sm_config_set_in_shift(&c, false, true, 30); // ISR（入力シフトレジスタ）のシフト方向
+    sm_config_set_out_shift(&c, true, true, 8); // OSR（出力シフトレジスタ）のシフト方向
 
-    pio_sm_set_consecutive_pindirs(pio, sm, DATA_PINS_BASE, 8, false); // 出力ピン初期化
-
-    // シフトレジスタの設定
-    sm_config_set_in_shift(&c, false, false, 0); // ISR（入力シフトレジスタ）のシフト方向
-    sm_config_set_out_shift(&c, true, false, 0); // OSR（出力シフトレジスタ）のシフト方向
-
-    // sm のROMエミュプログラムをロード
-    pio_sm_init(pio, sm, offset, &c);
-    pio_sm_set_enabled(pio, sm, true);
+    // sm のROMエミュプログラムを有効にする
+    pio_sm_init(pio, sm_emu, offset, &c);
+//    pio_sm_set_enabled(pio, sm_emu, true);
 
     sleep_ms(1); // 1ms待機
 
-    // PWM クロック出力初期化 (10MHz)
-    init_clk_pwm(10 * 1000 * 1000);
     init_rom_basic_code(); // rom_basic_const.cから初期化
     sleep_ms(3000); // 3秒待機
-    // [Enter]入力を待つ
-    printf("\n[Enter] を押すとPico2 ROMエミュレータのテスト開始します...\n");
+
+    // PWM TMPZ84C015 クロック出力初期化 (10MHz)
+    printf("クロック出力(PWM) - 初期化中...\n"); 
+//    init_clk_pwm(10000000);     // 10MHz 9600bps
+//    init_clk_pwm(5000000);     // 5MHz 4800bps
+      init_clk_pwm(2500000);     // 2.5MHz 2400bps
+//   init_clk_pwm(20);     // 100Hz
+//       init_lowest_freq_pwm();     // 最低周波数出力
+
+// [Enter]入力を待つ
+    printf("\n[Enter] を押すとPico2 RAMエミュレータのテスト開始します...\n");
     while (true) {
         int c = getchar_timeout_us(100000); // 100msタイムアウト
         if (c == '\r') { // [Enter]（CR）が入力されたら開始
-            printf("Pico2 ROMエミュレータのテスト開始...\n");
+            printf("Pico2 RAMエミュレータのテスト開始...\n");
             break;
         }
     }
     printf("\nPico2 システムクロック(1.3V) - %dMHz\n", sysclk / 1000);
+    printf("Pico2 - AKI-80 UART通信速度 - %d bps\n", BAUD_RATE);
     printf("リセット出力状態 - ON\n");
     if (current_clk_freq >= 1000000) {
-        printf("クロック出力(PWM-%dMHz) - ON\n", current_clk_freq / 1000000);
+        printf("AKI-80クロック出力(PWM-%.2fMHz) - ON\n", current_clk_freq / 1000000.0f);
     } else if (current_clk_freq >= 1000) {
-        printf("クロック出力(PWM-%dKHz) - ON\n", current_clk_freq / 1000);
+        printf("クロック出力(PWM-%.2fKHz) - ON\n", current_clk_freq / 1000);
     } else {
-        printf("クロック出力(PWM-%dHz) - ON\n", current_clk_freq);
+        printf("AKI-80クロック出力(PWM-%dHz) - ON\n", current_clk_freq);
     }
-    printf("ROMエミュレータ起動 - core1\n");
+    printf("RAMエミュレータ起動 - core1\n");
     multicore_launch_core1(core1_entry);
     uint32_t g = multicore_fifo_pop_blocking();
     if (g != FLAG_VALUE)
@@ -192,13 +293,17 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
         printf("コア0ではすべてうまくいきました!\n");
     }
 
-    uint32_t reset_delay_ms = 1000;
-    printf("リセット解除まで - %d ms\n", reset_delay_ms);
-    add_alarm_in_ms(reset_delay_ms, reset_timer_callback, NULL, false);
+// Z80BUS エミュレータ(PIO)を有効にする
+    pio_sm_set_enabled(pio, sm_trg, true);
+    pio_sm_set_enabled(pio, sm_emu, true);
+
+    //    uint32_t reset_delay_ms = 1000;
+//    printf("リセット解除まで - %d ms\n", reset_delay_ms);
+//    add_alarm_in_ms(reset_delay_ms, reset_timer_callback, NULL, false);
 
     // メインループ
     printf("UART-USBブリッジ動作開始...\n");
-
+    printf("リセットを解除してください\n");
     while (true) {
         // UARTの受信データがあるかチェック
         if (uart_is_readable(UART_ID)) {
