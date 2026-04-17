@@ -19,13 +19,13 @@ loop1:
     wait 0 gpio A15_Pin   ; A15 = 0 待ち(アドレス0-7FFFH)
     in pins, 2            ; MRWR#(GP25) - MRRD#(GP26) 読取り
     mov y, ! isr          ; y = MRWR#/MRRD# 信号の反転 (どちらかがLowならy>0)
-    jmp !y loop1          ; y==0 (RD=1, WR=1) ならループ継続。どちらかがLowになるまで待つ
+    jmp !y loop1          ; y==0 (RD=1,WR=1)ならループ。どちらかがLowになるまで待つ
     irq 0                 ; トリガ発生
 loop2:
     mov isr, ! null
     in pins, 2
     mov y, ! isr
-    jmp y-- loop2         ; y!=0 (どちらかがLow) なら待機。両方がHigh（アイドル）に戻るまで待つ
+    jmp y-- loop2         ; y!=0 両方がHigh（アイドル）に戻るまで待つ
 .wrap
 
 ;
