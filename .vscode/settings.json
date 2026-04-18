@@ -1,7 +1,14 @@
 {
+  "cmake.buildType": "Release",
+ 　"cmake.configureSettings": {
+  "CMAKE_BUILD_TYPE": "Release",
+  "CMAKE_MAKE_PROGRAM": "C:/Users/abu_s/.pico-sdk/ninja/v1.12.1/ninja.exe"
+}
   "cmake.cmakePath": "C:\\Users\\abu_s\\.pico-sdk\\cmake\\v3.31.5\\bin\\cmake.exe",
   "cmake.generator": "Ninja",
+  "cmake.buildType": "Release",
   "cmake.configureSettings": {
+    "CMAKE_BUILD_TYPE": "Release",
     "CMAKE_MAKE_PROGRAM": "C:/Users/abu_s/.pico-sdk/ninja/v1.12.1/ninja.exe"
   },
   "cmake.configureArgs": [
@@ -40,3 +47,4 @@
   "raspberry-pi-pico.cmakePath": "${HOME}/.pico-sdk/cmake/v3.31.5/bin/cmake",
   "raspberry-pi-pico.ninjaPath": "${HOME}/.pico-sdk/ninja/v1.12.1/ninja"
 }
+

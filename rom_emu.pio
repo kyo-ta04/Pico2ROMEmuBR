@@ -16,7 +16,7 @@
 .wrap_target
 loop1:
     mov isr, ! null       ; ISR = 0xFFFFFFFF
-    wait 0 gpio A15_Pin   ; A15 = 0 待ち(アドレス0-7FFFH)
+;    wait 0 gpio A15_Pin   ; A15 = 0 待ち(アドレス0-7FFFH)
     in pins, 2            ; MRWR#(GP25) - MRRD#(GP26) 読取り
     mov y, ! isr          ; y = MRWR#/MRRD# 信号の反転 (どちらかがLowならy>0)
     jmp !y loop1          ; y==0 (RD=1,WR=1)ならループ。どちらかがLowになるまで待つ
