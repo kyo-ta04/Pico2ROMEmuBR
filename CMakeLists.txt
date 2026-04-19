@@ -41,7 +41,7 @@ pico_set_program_name(Pico2ROMEmuBR "Pico2ROMEmuBR")
 pico_set_program_version(Pico2ROMEmuBR "0.1")
 
 # Generate PIO header
-pico_generate_pio_header(Pico2ROMEmuBR ${CMAKE_CURRENT_LIST_DIR}/rom_emu.pio)
+pico_generate_pio_header(Pico2ROMEmuBR ${CMAKE_CURRENT_LIST_DIR}/ram_emu.pio)
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_uart(Pico2ROMEmuBR 0)

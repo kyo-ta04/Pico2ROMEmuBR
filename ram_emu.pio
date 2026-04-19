@@ -1,0 +1,46 @@
+; ram_emu.pio 
+
+.define MRWR_Pin 25
+.define MRRD_Pin 26
+.define A15_Pin  27 ; CE#
+
+;
+; ---- trg_pin ----
+; pinの立ち下がりを検出し、IRQ(0)を発生させる
+;
+.program trg_pin
+.wrap_target
+    wait 0 pin 0        ; MRRD#/MRWR# =0 待ち
+    irq prev 0          ; トリガ発生(PIO0へ通知)
+    wait 1 pin 0        ; MRRD#/MRWR# =1 なら終了
+.wrap
+
+;
+; ---- m_emu ----
+; irq0 にて GP0-29を読取り、メモリリード時はデータを出力
+; sm_config_set_jmp_pinで MRRD#(GP26)を指定すること
+;
+.program m_emu
+    mov isr, null         ; ISRクリア
+.wrap_target
+loop:
+    wait 1 irq 0          ; trg_pin からの通知待ち
+    in pins, 30           ; GPIO全ピン(GP0-29)30ピン読込(auto push)
+    jmp pin loop          ; MRRD#=1 メモリライトなので終了、loopへ
+                          ; メモリリード
+    out pins, 8           ; データ出力(auto pull)
+ .wrap
+
+;
+; ---- d_pindirs ----
+; RD信号に連動してデータバス(4bit)の方向を切り替える
+;
+.program d_pindirs
+    set pindirs, 0        ; 初期状態は入力(Hi-Z)
+    wait 1 gpio MRRD_Pin    ; RDがHighになるまで待つ
+.wrap_target
+    wait 0 gpio MRRD_Pin    ; RD が Low になるのを待つ
+    set pindirs, 0xF      ; 出力に切り替え (注: set で指定できるのは5bitまで)
+    wait 1 gpio MRRD_Pin    ; RD が High に戻るのを待つ
+    set pindirs, 0        ; 入力に戻す
+.wrap

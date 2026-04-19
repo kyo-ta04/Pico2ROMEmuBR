@@ -11,7 +11,7 @@
 #include "pico/multicore.h"
 #include "tusb.h" // TinyUSBのヘッダーを追加
 
-#include "rom_emu.pio.h"
+#include "ram_emu.pio.h"
 // #include "rom_basic_const.c" 
 #include "emubasic.c" 
 
@@ -27,28 +27,11 @@
 #define A15_PIN 27          // GP27 A15 アドレス (A15)
 #define CLKOUT_PIN 28       // GP28 (クロック出力)
 
-// // UART0の設定
-// #define UART_ID uart0
-// #define BAUD_RATE 9600 // AKI-80 10MHz 9,600bps
-// #define BAUD_RATE 4800  // AKI-80 5MHz 4,800bps
-// #define BAUD_RATE 2400  // AKI-80 2.5MHz 2,400bps
-// #define UART_TX_PIN 0
-// #define UART_RX_PIN 1
-
-
 #define FLAG_VALUE 123
-
-// // 8192 = 0-0x1FFF
-// #define MEMORY_SIZE 8192
 
 // 65536 = 0-0xFFFF
 #define MEMORY_SIZE 65536
 
-// PIO初期化
-PIO pio = pio0;
-// uint sm = 0;
-uint sm_trg = 0;
-uint sm_emu = 1;
 
 
 // 現在設定されているクロック周波数
@@ -84,14 +67,6 @@ const uint8_t __in_flash() __attribute__((aligned(4))) test2_data[] = {
 };
 
 
-//const uint8_t __in_flash() __attribute__((aligned(4))) test3_data[] = {
-//    0xF3, 0x31, 0x00, 0x20, 0x21, 0x33, 0x00, 0x7E, 0xB7, 0xCA, 0x13, 0x00, 0xCD, 0x25, 0x00, 0x23, // 0x0000 LD SP,2000H
-//    0xC3, 0x07, 0x00, 0x3A, 0x01, 0x1F, 0xCB, 0x47, 0xCA, 0x13, 0x00, 0x3A, 0x00, 0x1F, 0xCD, 0x25, // 0x0010
-//    0x00, 0xC3, 0x13, 0x00, 0x76, 0xF5, 0x3A, 0x01, 0x1F, 0xCB, 0x4F, 0xCA, 0x26, 0x00, 0xF1, 0x32, // 0x0020
-//    0x00, 0x1F, 0xC9, 0x48, 0x65, 0x6C, 0x6C, 0x6F, 0x20, 0x57, 0x6F, 0x72, 0x6C, 0x64, 0x21, 0x21, // 0x0030
-//    0x0D, 0x0A, 0x00, 0x1A, 0x1A, 0x1A, 0x1A, 0x1A, 0x1A, 0x1A, 0x1A, 0x1A, 0x1A, 0x1A, 0x1A, 0x1A, // 0x0040
-//};
-
 const uint8_t __in_flash() __attribute__((aligned(4))) test3_data[] = {
     0xF3, 0x31, 0xED, 0x80, 0x21, 0x33, 0x00, 0x7E, 0xB7, 0xCA, 0x13, 0x00, 0xCD, 0x25, 0x00, 0x23, // 0x0000
     0xC3, 0x07, 0x00, 0x3A, 0x01, 0xE0, 0xCB, 0x47, 0xCA, 0x13, 0x00, 0x3A, 0x00, 0xE0, 0xCD, 0x25, // 0x0010
@@ -108,17 +83,6 @@ static uint8_t __attribute__((aligned(4))) memory[MEMORY_SIZE];
 
 // rom_basic[]をrom_data[]にコピーする初期化ルーチン
 void init_rom_basic_code(void) {
-//    memcpy(memory, test3_data, sizeof(test3_data));
-//    memset(memory + sizeof(test3_data), 0xFF, 32768 - sizeof(test3_data));
-//    memset(memory + 0x8000, 0, 32768);
-
-    // z80_binary[]の内容をrom_data[]の先頭にコピー
-//    memcpy(memory, rom_basic, sizeof(rom_basic));
-    // 残りのmemory[]を0xFFで埋める
-//    memset(memory + sizeof(rom_basic), 0xFF, MEMORY_SIZE - sizeof(rom_basic));
-//    memset(memory + sizeof(rom_basic), 0xFF, 32768 - sizeof(rom_basic));
-//    memset(memory + 0x8000, 0, 32768)
-
     memcpy(memory, emubasic, sizeof(emubasic));
     memset(memory + sizeof(emubasic), 0xFF, 32768 - sizeof(emubasic));
     memset(memory + 0x8000, 0, 32768);
@@ -193,65 +157,88 @@ void init_clk_pwm(uint32_t display_freq_hz) {
 }
 
 
-// 通信専用のコア0,1で共有するUART通信のためのグローバル変数
-static volatile uint8_t uart_tx_data = 0;   // 送信データバッファ(Z80からPicoへ: 1バイト)
-static volatile uint8_t uart_rx_data = 0;   // 受信データバッファ(PicoからZ80へ: 1バイト)
-static volatile bool    uart_tx_ready = true;   // 送信可フラグ (true=Ready, false=Busy)
-static volatile bool    uart_rx_ready = false;  // 受信完了フラグ (true=Ready, false=Empty)
+// PIO0 とステートマシンの定義
+PIO pio_0 = pio0;
+uint sm_emu = 0;
+uint sm_pindir_L = 1;
+uint sm_pindir_H = 2;
 
-// Memory Maped I/O UART - UARTDR(DataReg.):1FF0H, UARTCR(Ctrl-Reg.):1FF1H b0=受信文字あり,b1=送信可
+PIO pio_1 = pio1;
+uint sm_trg_r = 0;
+uint sm_trg_w = 1;
+
+
+// 通信専用のコア0,1で共有するUART通信のためのグローバル変数
+static volatile uint8_t __attribute__((section(".scratch_x"))) uart_tx_data = 0;   // 送信データバッファ(Z80からPicoへ: 1バイト)
+static volatile uint8_t __attribute__((section(".scratch_x"))) uart_rx_data = 0;   // 受信データバッファ(PicoからZ80へ: 1バイト)
+static volatile bool    __attribute__((section(".scratch_x"))) uart_tx_ready = true;   // 送信可フラグ (true=Ready, false=Busy)
+static volatile bool    __attribute__((section(".scratch_x"))) uart_rx_ready = false;  // 受信完了フラグ (true=Ready, false=Empty)
+
+// Memory Maped I/O UART - UARTDR(DataReg.):E000H, UARTCR(Ctrl-Reg.):E001H b0=受信文字あり,b1=送信可
 #define UARTDR 0xE000
 #define UARTCR 0xE001
 
 // コア1のエントリポイント - Z80バスエミュレーション、UARTメモリメモリマップド版
 __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {;
     uint count = 0;
+    uint flg = 0;
     uint8_t data_byte = 0;
     multicore_fifo_push_blocking(FLAG_VALUE);
     uint32_t g = multicore_fifo_pop_blocking();
-    // GP0-29(RX0:GP0,TX0:GP1,D0-D7:GP2-9,A0-A12:GP10-22,MRWR#:GP25,MRRD#:GP26,A15:GP27,CLK:GP28)
+    // GP0-29(A13:GP0,A14:GP1,D0-D7:GP2-9,A0-A12:GP10-22,MRWR#:GP25,MRRD#:GP26,A15:GP27,CLK:GP28)
     const uint32_t mrwr_mask = (1u << MRWR_PIN);
-    const uint32_t a15_mask = (1u << A15_PIN);
-    const uint32_t a14_mask = (1u << A14_PIN);
-    const uint32_t a13_mask = (1u << A13_PIN);
     while (true) {
-        uint32_t agpio = pio_sm_get_blocking(pio, sm_emu);          // GPIO0-29の値を取得
-        uint32_t adrs_word = (agpio >> ADDR_PINS_BASE) & 0x1FFF;    // A0-A12の13ビットを抽出
-        if (agpio & a15_mask) adrs_word |= 0x8000;
-        if (agpio & a14_mask) adrs_word |= 0x4000;
-        if (agpio & a13_mask) adrs_word |= 0x2000;
-        if (!(agpio & mrwr_mask)) {   //  MRWR=0 メモリーライト
-            data_byte = (uint8_t)(agpio >> DATA_PINS_BASE); // D0-D7の8ビットを抽出
-            if (adrs_word == UARTDR) {      // UART データレジスタ
-                uart_tx_data = data_byte;   // UART送信バッファに書込み
-                __dmb();                    // データメモリバリア
-                uart_tx_ready = false; // 書き込まれたので送信Busy
-            } else {
-                memory[adrs_word] = data_byte;      // メモリーに書込み
+        uint32_t agpio = pio_sm_get_blocking(pio_0, sm_emu);          // GPIO0-29の値を取得
+         // === 最速アドレス計算（branchless + 最小演算）===
+        // A0-A12: agpio[22:10], A13-A14: agpio[1:0], A15: agpio[27] 
+        // 27bit目を15bit目に持ってくるため右に12シフトし、0x8000でマスク
+        uint32_t adrs_word = ((agpio >> ADDR_PINS_BASE) & 0x1FFFu) | 
+                             ((agpio & 0x3u) << 13) | 
+                             ((agpio >> 12) & 0x8000u);
+        // UART領域(0xE000, 0xE001)かどうかの判定をマスク(0xFFFE)で一括で行う
+        // __builtin_expect(..., 0) でコンパイラに「基本はfalse(通常メモリ)である」と伝える
+        if (__builtin_expect((adrs_word & 0xFFFEu) == 0xE000u, 0)) {
+            data_byte = (uint8_t)(agpio >> DATA_PINS_BASE);
+            // --- UARTアクセス ---
+            if (!(agpio & mrwr_mask)) {   // メモリーライト
+                if (adrs_word == UARTDR) {
+                    uart_tx_data = data_byte;
+                    // __dmb();                     // データメモリバリア
+                    uart_tx_ready = false;
+                }
+            } else {                      // メモリーリード
+                if (adrs_word == UARTDR) {
+                    data_byte = uart_rx_data;
+                    // __dmb();                     // データメモリバリア
+                    uart_rx_ready = false;
+                    
+                } else { // UARTCR (0xE001)
+                    data_byte = (uint8_t)uart_rx_ready | ((uint8_t)uart_tx_ready << 1);
+                }
+                pio_sm_put(pio_0, sm_emu, data_byte);
             }
-        } else { // MRWR=1 メモリーリード
-            if (adrs_word == UARTDR) {  // UARTデータレジスタ
-                data_byte = uart_rx_data;       // UART受信データ
-                __dmb();                        // データメモリバリア
-                uart_rx_ready = false;          // 読み取ったのでフラグを下ろす
-            } else if (adrs_word == UARTCR) {   // UARTコントロールレジスタ
-                data_byte = 0;
-                if (uart_rx_ready) data_byte |= 0x01;   //  Bit0: RX Ready, Bit1: TX Ready
-                if (uart_tx_ready) data_byte |= 0x02;
-            } else {
-                data_byte = memory[adrs_word];      // メモリーから読出し
+        } else {
+            // --- 通常RAM/ROMアクセス (HOT PATH: 最速で処理する) ---
+            if (!(agpio & mrwr_mask)) {   // メモリーライト
+                data_byte = (uint8_t)(agpio >> DATA_PINS_BASE);
+                memory[adrs_word] = data_byte;
+            } else {                      // メモリーリード
+                data_byte = memory[adrs_word];
+                pio_sm_put(pio_0, sm_emu, data_byte);
             }
-            pio_sm_put(pio, sm_emu, data_byte);     // Z80データバスに出力
-        } 
-        count++;
-        if (false) { // デバッグ用 Z80_freq = 20  (20Hz) で使用する
-            printf("%05u BUS:%08X ADRS:%04X DATA:%02X  A15:%d MRRD:%d MRWR:%d\n",
-                count, agpio, adrs_word, (uint)data_byte, //);
-                (agpio >> A15_PIN) & 1, (agpio >> MRRD_PIN) & 1, (agpio >> MRWR_PIN) & 1
-            );
         }
+#if 0
+        count++; // デバッグ用 Z80_freq = 20  (20Hz) で使用する
+        if (flg) {
+        printf("%05u BUS:%08X ADRS:%04X DATA:%02X  A15:%d MRRD:%d MRWR:%d\n",
+            count, agpio, adrs_word, (uint)data_byte, 
+            (agpio >> A15_PIN) & 1, (agpio >> MRRD_PIN) & 1, (agpio >> MRWR_PIN) & 1);
+            flg = 0;
+        }
+#endif
     }
 }
+
 
 // --- UART Task (Core 0) ---
 void UART_task(void) {
@@ -261,8 +248,16 @@ void UART_task(void) {
         // 送信処理: Z80がデータを書き込んで Busy になったら実行
         if (!uart_tx_ready) {
             if (tud_cdc_connected() && tud_cdc_write_available() > 0) {
-                putchar(uart_tx_data);
-                __dmb();
+//                if (uart_tx_data < ' ') {
+//                    putchar('.'); // 制御文字はドットで表示
+//                    if (uart_tx_data == '\n') {
+//                        putchar('\n');
+//                    }
+//                } else {
+                    putchar(uart_tx_data);
+//                }
+//                printf("[%02X]",uart_tx_data); // デバッグ用送信データ表示
+                // __dmb();
                 uart_tx_ready = true; // 送信完了（readyに戻す）
             }
         }
@@ -271,14 +266,13 @@ void UART_task(void) {
             int c = getchar_timeout_us(0);
             if (c != PICO_ERROR_TIMEOUT) {
                 uart_rx_data = (uint8_t)c;
-                __dmb();
+                // __dmb();
                 uart_rx_ready = true;
             }
         }
         sleep_ms(1);
     }
 }
-
 
 //
 // メインルーチン
@@ -293,54 +287,60 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
     set_qspi_clock_divider(sysclk, 133000); // QSPIクロックを133MHz以下に
 
     stdio_init_all();
- //   setbuf(stdout, NULL);           // 標準出力のバッファリングを無効化 
-
-//    // UART0の初期化
-//    uart_init(UART_ID, BAUD_RATE);
-//    // UARTピンの設定（GPIO0=TX, GPIO1=RX）
-//    gpio_set_function(UART_TX_PIN, GPIO_FUNC_UART);
-//    gpio_set_function(UART_RX_PIN, GPIO_FUNC_UART);
+    //setbuf(stdout, NULL);           // 標準出力のバッファリングを無効化 
 
     // PIO初期化
     // DATA-BUS GP2-9：入出力
     for (int i = 0; i < 8; i++) {
-        pio_gpio_init(pio, DATA_PINS_BASE + i);
+        pio_gpio_init(pio_0, DATA_PINS_BASE + i);
     }
     // ADDR-BUS GP10-22：入力(13ピン A0-A12)
     for (int i = 0; i < 13; i++) {
-        pio_gpio_init(pio, ADDR_PINS_BASE + i);
+        pio_gpio_init(pio_0, ADDR_PINS_BASE + i);
     }
-    pio_gpio_init(pio, A13_PIN); //  A13 (GP0:入力)の初期化
-    pio_gpio_init(pio, A14_PIN); //  A14 (GP1:入力)の初期化
-    pio_gpio_init(pio, A15_PIN); //  A15 (GP27:入力)の初期化
+    pio_gpio_init(pio_0, A13_PIN); //  A13 (GP0:入力)の初期化
+    pio_gpio_init(pio_0, A14_PIN); //  A14 (GP1:入力)の初期化
+    pio_gpio_init(pio_0, A15_PIN); //  A15 (GP27:入力)の初期化
+    pio_gpio_init(pio_0, MRWR_PIN); // MRWR#　メモリライト (GP25:入力) の初期化
+    pio_gpio_init(pio_0, MRRD_PIN); // MRRD#　メモリリード (GP26:入力) の初期化
 
-    pio_gpio_init(pio, MRWR_PIN); // MRWR#　メモリライト (GP25:入力) の初期化
-    pio_gpio_init(pio, MRRD_PIN); // MRRD#　メモリリード (GP26:入力) の初期化
-
-    // SM0: trg_rw (Detection of falling edge on MRRD#/MRWR#
-    uint offset_trg = pio_add_program(pio, &trg_rw_program);
-    pio_sm_config c_trg = trg_rw_program_get_default_config(offset_trg);
-//    sm_config_set_jmp_pin(&c_trg, MRRD_PIN); //  MRRD# (GP26）をJMPピンとして設定
-    sm_config_set_in_pins(&c_trg, MRWR_PIN); // base = GP25 (MRWR#, GP26 (MRRD#))
-//    sm_config_set_in_pins(&c_trg, MRRD_PIN); // base = GP26 (MRRD#)
-    pio_sm_init(pio, sm_trg, offset_trg, &c_trg);
-//    pio_sm_set_enabled(pio, sm_trg, true);
-
-
-    uint offset = pio_add_program(pio, &m_emu_program);
+    // PIO0 SM0: ROMエミュレーションプログラム
+    uint offset = pio_add_program(pio_0, &m_emu_program);
     pio_sm_config c = m_emu_program_get_default_config(offset);
     sm_config_set_in_pins(&c, 0);   // GPIO0-29全てを入力として設定
     sm_config_set_out_pins(&c, DATA_PINS_BASE, 8);
     sm_config_set_jmp_pin(&c, MRRD_PIN); //  MRRD# (GP26）をJMPピンとして設定
-    pio_sm_set_consecutive_pindirs(pio, sm_emu, DATA_PINS_BASE, 8, false); // D0-7ピン初期化(入力)
+    pio_sm_set_consecutive_pindirs(pio_0, sm_emu, DATA_PINS_BASE, 8, false); // D0-7ピン初期化(入力)
 
     // シフトレジスタの設定(Auto push 30bit/pull 8bit)
     sm_config_set_in_shift(&c, false, true, 30); // ISR（入力シフトレジスタ）のシフト方向
     sm_config_set_out_shift(&c, true, true, 8); // OSR（出力シフトレジスタ）のシフト方向
+    // sm のROMエミュプログラムを初期化する
+    pio_sm_init(pio_0, sm_emu, offset, &c);
 
-    // sm のROMエミュプログラムを有効にする
-    pio_sm_init(pio, sm_emu, offset, &c);
-//    pio_sm_set_enabled(pio, sm_emu, true);
+    // PIO0 SM1/2: データ(D0-D7)ピン方向制御プログラム
+    uint offset_pindir = pio_add_program(pio_0, &d_pindirs_program);
+    pio_sm_config c_pindir_L = d_pindirs_program_get_default_config(offset_pindir);
+    pio_sm_config c_pindir_H = d_pindirs_program_get_default_config(offset_pindir);
+    sm_config_set_set_pins(&c_pindir_L, DATA_PINS_BASE, 4); // D0-D3
+    sm_config_set_set_pins(&c_pindir_H, DATA_PINS_BASE + 4, 4); // D4-D7
+    pio_sm_init(pio_0, sm_pindir_L, offset_pindir, &c_pindir_L);
+    pio_sm_init(pio_0, sm_pindir_H, offset_pindir, &c_pindir_H);
+
+    pio_gpio_init(pio_1, MRRD_PIN); // MRRD#　メモリリード (GP26:入力) の初期化
+    pio_gpio_init(pio_1, MRWR_PIN); // MRWR#　メモリライト (GP25:入力) の初期化
+
+    // PIO1 SM0/1: trg_pin (Detection of falling edge on MRRD#/MRWR#)
+    uint offset_trg = pio_add_program(pio_1, &trg_pin_program);
+    pio_sm_config c_trg_w = trg_pin_program_get_default_config(offset_trg);
+    pio_sm_config c_trg_r = trg_pin_program_get_default_config(offset_trg);
+    sm_config_set_in_pins(&c_trg_r, MRWR_PIN); // base = GP25 (MRWR#)
+    sm_config_set_in_pins(&c_trg_w, MRRD_PIN); // base = GP26 (MRRD#)
+    pio_sm_init(pio_1, sm_trg_r, offset_trg, &c_trg_r);
+    pio_sm_init(pio_1, sm_trg_w, offset_trg, &c_trg_w);
+
+
+
 
     sleep_ms(1); // 1ms待機
 
@@ -349,11 +349,18 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
 
     // PWM TMPZ84C015 クロック出力初期化 (10MHz)
     printf("クロック出力(PWM) - 初期化中...\n"); 
-//    init_clk_pwm(10000000);     // 10MHz
-    init_clk_pwm(9000000);     // 8MHz
-//    init_clk_pwm(8000000);     // 8MHz
-//    init_clk_pwm(5000000);     // 5MHz
-//      init_clk_pwm(2500000);     // 2.5MHz
+//   init_clk_pwm(12000000);     // 12MHz
+ //  init_clk_pwm(11000000);     // 11MHz
+   init_clk_pwm(10000000);     // 10MHz
+//   init_clk_pwm(9000000);     // 9MHz
+//   init_clk_pwm(8000000);     // 8MHz
+//   init_clk_pwm(5000000);     // 5MHz
+//   init_clk_pwm(2500000);     // 2.5MHz
+//   init_clk_pwm(200000);     // 200kHz
+//   init_clk_pwm(100000);     // 100kHz
+//   init_clk_pwm(10000);     // 10kHz
+//   init_clk_pwm(1000);     // 1kHz
+//   init_clk_pwm(100);     // 100Hz
 //   init_clk_pwm(50);     // 50Hz
 //   init_clk_pwm(20);     // 20Hz
 
@@ -388,8 +395,11 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
     }
 
 // Z80BUS エミュレータ(PIO)を有効にする
-    pio_sm_set_enabled(pio, sm_trg, true);
-    pio_sm_set_enabled(pio, sm_emu, true);
+    pio_sm_set_enabled(pio_0, sm_emu, true);
+    pio_sm_set_enabled(pio_1, sm_trg_w,true);
+    pio_sm_set_enabled(pio_1, sm_trg_r,true);
+    pio_sm_set_enabled(pio_0, sm_pindir_L,true);
+    pio_sm_set_enabled(pio_0, sm_pindir_H,true);
 
     //    uint32_t reset_delay_ms = 1000;
 //    printf("リセット解除まで - %d ms\n", reset_delay_ms);
@@ -398,19 +408,10 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
     // メインループ
     printf("UART-USBブリッジ動作開始...\n");
     printf("リセットを解除してください\n");
+    int d = 0;
+    while ((d = getchar_timeout_us(100000)) != PICO_ERROR_TIMEOUT)
+        printf("<%02X",d);
     UART_task();
 
-//    while (true) {
-//        // UARTの受信データがあるかチェック
-//        if (uart_is_readable(UART_ID)) {
-//            int c = uart_getc(UART_ID);     // UARTから1文字受信
-//            putchar_raw(c);                 // 受信データをそのままUSBへ送信
-//        }
-//        // USBから受信データがあるかチェック
-//        int c;
-//        if ((c = getchar_timeout_us(0)) != PICO_ERROR_TIMEOUT) {
-//            uart_putc_raw(UART_ID, c); // UARTへデータ送信
-//        }
-//    }
     return 0;
 }
