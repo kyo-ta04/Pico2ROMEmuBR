@@ -47,9 +47,13 @@ static uint8_t test1_data[] = { // test program for debug
 };
 
 static uint8_t test2_data[] = { // test program for debug
- 0x3E, 0x41,       // LD A, 0x41
- 0x32, 0x00, 0x1F, // LD (0x1F00), A
- 0x76               // HALT
+    0xF3, 0xC3, 0x4D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x76, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 0x0000
+    0x76, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x76, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 0x0010
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 0x0020
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x76, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 0x0030
+    0xF5, 0x3A, 0xF2, 0xF9, 0xB7, 0xCA, 0x41, 0x00, 0xF1, 0x32, 0xF0, 0xF9, 0xC9, 0x31, 0x00, 0x84, // 0x0040
+    0x21, 0x5F, 0x00, 0x7E, 0xB7, 0xCA, 0x50, 0x00, 0xCD, 0x40, 0x00, 0x23, 0xC3, 0x53, 0x00, 0x48, // 0x0050
+    0x45, 0x4C, 0x4C, 0x4F, 0x20, 0x57, 0x4F, 0x52, 0x4C, 0x44, 0x21, 0x0D, 0x0A, 0x00, 0x00, 0x00, // 0x0060
 };
 
 
@@ -59,8 +63,9 @@ static uint8_t __attribute__((aligned(4))) memory[MEMORY_SIZE];
 
 // rom_basic[]をrom_data[]にコピーする初期化ルーチン
 void init_rom_basic_code(void) {
-    memcpy(memory, emubasic, sizeof(emubasic));
-    memset(memory + sizeof(emubasic), 0xFF, 32768 - sizeof(emubasic));
+    uint8_t *init_data = test2_data; // デバッグ用テストコード
+    memcpy(memory, init_data, sizeof(test2_data));
+    memset(memory + sizeof(test2_data), 0xFF, 32768 - sizeof(test2_data));
     memset(memory + 0x8000, 0, 32768);
 
 }
@@ -172,8 +177,15 @@ static volatile bool    __attribute__((section(".scratch_x"))) uart_tx_ready = t
 static volatile bool    __attribute__((section(".scratch_x"))) uart_rx_ready = false;  // 受信完了フラグ (true=Ready, false=Empty)
 
 // Memory Maped I/O UART - UARTDR(DataReg.):E000H, UARTCR(Ctrl-Reg.):E001H b0=受信文字あり,b1=送信可
-#define UARTDR 0xE000
-#define UARTCR 0xE001
+// F9F0 - F9F1
+
+// #define UARTDR 0xE000
+// #define UARTCR 0xE001
+
+#define UARTDR 0xF9F0
+#define UARTIS 0xF9F1
+#define UARTOS 0xF9F2
+
 
 // コア1のエントリポイント - Z80バスエミュレーション、UARTメモリメモリマップド版
 __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {;
@@ -195,9 +207,9 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {;
         uint32_t adrs_word = ((agpio >> ADDR_PINS_BASE) & 0x1FFFu) | 
                              ((agpio & 0x3u) << 13) | 
                              ((agpio >> 12) & 0x8000u);
-        // UART領域(0xE000, 0xE001)かどうかの判定をマスク(0xFFFE)で一括で行う
+        // UART領域(0xF9F0-0xF9F3)かどうかの判定をマスク(0xFFFC)で一括で行う
         // __builtin_expect(..., 0) でコンパイラに「基本はfalse(通常メモリ)である」と伝える
-        if (__builtin_expect((adrs_word & 0xFFFEu) == 0xE000u, 0)) {
+        if (__builtin_expect((adrs_word & 0xFFFCu) == 0xF9F0u, 0)) {
             data_byte = (uint8_t)(agpio >> DATA_PINS_BASE);
             // --- UARTアクセス ---
             if (!(agpio & mrwr_mask)) {   // メモリーライト
@@ -209,9 +221,13 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {;
                 if (adrs_word == UARTDR) {  // UARTDRの読み込み(受信)
                     data_byte = uart_rx_data;
                     uart_rx_ready = false;
-                } else { // UARTCR ステータスレジスタの読み込み
-                    data_byte = (uint8_t)uart_rx_ready | ((uint8_t)uart_tx_ready << 1);
-                }
+                } else if (adrs_word == UARTIS) {   // 0xF9F1: 受信ステータス
+                    data_byte = uart_rx_ready ? 0xFF : 0x00;
+                    printf("UARTIS read: %02X %02X\n", uart_rx_ready, data_byte); // デバッグ用、受信ステータスの表示
+                } else if (adrs_word == UARTOS) {   // 0xF9F2: 送信ステータス
+                    data_byte = uart_tx_ready ? 0xFF : 0x00;
+                    // printf("UARTOS read: %02X %02X\n", uart_tx_ready, data_byte); // デバッグ用、送信ステータスの表示
+                }    
                 pio_sm_put(pio_0, sm_emu, data_byte);
             }
         } else {
@@ -226,6 +242,7 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {;
         }
 #if 0
         count++; // デバッグ用 Z80_freq = 20-50  (20-50Hz) で使用する
+        flg = 1; // デバッグ用、全てのアクセスを表示する場合は常に1、特定の条件で表示する場合は条件式を入れる
         if (flg) {
             printf("%10u BUS:%08X ADRS:%04X DATA:%02X  A15:%d MRRD:%d MRWR:%d\n",
             count, agpio, adrs_word, (uint)data_byte, 
@@ -371,8 +388,8 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
     // PWM TMPZ84C015 クロック出力初期化 (10MHz)
     printf("クロック出力(PWM) - 初期化中...\n"); 
 //   init_clk_pwm(12000000);     // 12MHz
- //  init_clk_pwm(11000000);     // 11MHz
-   init_clk_pwm(10000000);     // 10MHz
+//   init_clk_pwm(11000000);     // 11MHz
+//   init_clk_pwm(10000000);     // 10MHz
 //   init_clk_pwm(9000000);     // 9MHz
 //   init_clk_pwm(8000000);     // 8MHz
 //   init_clk_pwm(5000000);     // 5MHz
@@ -383,7 +400,7 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
 //   init_clk_pwm(10000);     // 10kHz
 //   init_clk_pwm(1000);     // 1kHz
 //   init_clk_pwm(100);     // 100Hz
-//   init_clk_pwm(50);     // 50Hz
+   init_clk_pwm(50);     // 50Hz
 //   init_clk_pwm(20);     // 20Hz
     float volt = 0;
     if (sysvolt == VREG_VOLTAGE_1_10)
@@ -397,7 +414,7 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
 
     //  エミュレーション開始(core1)
     printf("Pico2  Core:%0.2fV Clock:%uMHz\n", volt, sysclk / 1000);
-    printf("Super AKI-80 UART通信(メモリマップド UARTDR:%04X, UARTCR:%04X)\n", UARTDR, UARTCR);
+    printf("Super AKI-80 UART通信(メモリマップド UARTDR:%04X, UARTIS:%04X, UARTOS:%04X)\n", UARTDR, UARTIS, UARTOS);
     printf("Super AKI-80クロック出力");
     if (current_clk_freq >= 1000000) {
         printf("(PWM-%.2fMHz) - ON\n", current_clk_freq / 1000000.0f);
