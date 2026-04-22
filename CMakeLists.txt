@@ -35,7 +35,7 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(Pico2ROMEmuBR Pico2ROMEmuBR.c )
+add_executable(Pico2ROMEmuBR Pico2ROMEmuBR.c emubasic.c)
 
 pico_set_program_name(Pico2ROMEmuBR "Pico2ROMEmuBR")
 pico_set_program_version(Pico2ROMEmuBR "0.1")

@@ -12,17 +12,13 @@
 #include "tusb.h" // TinyUSBのヘッダーを追加
 
 #include "ram_emu.pio.h"
-// #include "rom_basic_const.c" 
-#include "emubasic.c" 
+#include "emubasic.h" 
 
 #define A13_PIN 0           // GP0 A13 アドレス
 #define A14_PIN 1           // GP1 A14 アドレス
 #define DATA_PINS_BASE 2    // GP2～GP9 (D0-D7 8bit)
 #define ADDR_PINS_BASE 10   // GP10～GP22 (A0-A12 13bit)
-// #define RESETOUT_PIN 25     // GP25 (リセット出力)
 #define MRWR_PIN 25         // GP25  メモリライト (MRWR#)
-// #define OE_PIN 26           // GP26 Output Enable (OE#)
-// #define CS_PIN 27           // GP27 Chip Select (CS#)
 #define MRRD_PIN 26         // GP26 メモリリード (MRRD#)
 #define A15_PIN 27          // GP27 A15 アドレス (A15)
 #define CLKOUT_PIN 28       // GP28 (クロック出力)
@@ -189,7 +185,6 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {;
     const uint32_t mrwr_mask = (1u << MRWR_PIN);
     while (true) {
         uint32_t agpio = pio_sm_get_blocking(pio_0, sm_emu);          // GPIO0-29の値を取得
-        // === 最速アドレス計算（branchless + 最小演算）===
         // A0-A12: agpio[22:10], A13-A14: agpio[1:0], A15: agpio[27] 
         // 27bit目を15bit目に持ってくるため右に12シフトし、0x8000でマスク
         uint32_t adrs_word = ((agpio >> ADDR_PINS_BASE) & 0x1FFFu) | 
@@ -285,6 +280,7 @@ void UART_task(void) {
     }
 }
 
+
 //
 // メインルーチン
 //
@@ -371,7 +367,7 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
     // PWM TMPZ84C015 クロック出力初期化 (10MHz)
     printf("クロック出力(PWM) - 初期化中...\n"); 
 //   init_clk_pwm(12000000);     // 12MHz
- //  init_clk_pwm(11000000);     // 11MHz
+//  init_clk_pwm(11000000);     // 11MHz
    init_clk_pwm(10000000);     // 10MHz
 //   init_clk_pwm(9000000);     // 9MHz
 //   init_clk_pwm(8000000);     // 8MHz
