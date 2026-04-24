@@ -13,7 +13,7 @@
 
 #include "ram_emu.pio.h"
 // #include "rom_basic_const.c" 
-#include "emubasic.c" 
+// include "emubasic.c" 
 
 #define A13_PIN 0           // GP0 A13 アドレス
 #define A14_PIN 1           // GP1 A14 アドレス
@@ -50,6 +50,16 @@ static uint8_t test2_data[] = { // test program for debug
     0xC3, 0x00, 0xFA, // JP 0xFA00 BIOS BOOT
 };
 
+// BOOT ROM
+const unsigned char boot[] = {
+    0xC3,
+    0x00,
+    0xFA, // JP BIOS
+};
+const size_t boot_size = sizeof(boot);
+
+
+#include "ccp_bdos.h" // CCP BDOSコードをインクルード
 #include "bios.h" // BIOSコードをインクルード
 // const size_t bios_size = 640;
 // const uint8_t __in_flash() __attribute__((aligned(4))) bios[] = {
@@ -63,8 +73,15 @@ void init_rom_basic_code(void) {
 //    memcpy(memory, init_data, sizeof(test2_data));
 //    memset(memory + sizeof(test2_data), 0xFF, 32768 - sizeof(test2_data));
 //    memset(memory + 0x8000, 0, 32768);
-    memcpy(memory, test2_data, sizeof(test2_data));
-    memcpy(memory + 0xFA00, bios, sizeof(bios));
+//    memcpy(memory, test2_data, sizeof(test2_data));
+//    memcpy(memory + 0xFA00, bios, sizeof(bios));
+
+
+      // // Z80用メモリー初期化
+  memcpy(memory, boot, sizeof(boot));
+  memcpy(memory + 0xE400, ccp_bdos, ccp_bdos_size);
+  memcpy(memory + 0xFA00, bios, bios_size);
+
 
 }
 
@@ -179,10 +196,22 @@ static volatile bool    __attribute__((section(".scratch_x"))) uart_rx_ready;  /
 
 // #define UARTDR 0xE000
 // #define UARTCR 0xE001
+#define MEMMAP 0xFFE0 // メモリマップドI/Oのベースアドレス
+#define UARTDR (MEMMAP+0)   // 0xF9E0 : UART Data Register
+#define UARTIS (MEMMAP+1)   // 0xF9E1 : UART Interrupt Status Register
+#define UARTOS (MEMMAP+2)   // 0xF9E2 : UART Output Status Register
+#define DMAST  (MEMMAP+9)   // DMA status
+#define FDCD   (MEMMAP+10)	// fdc-port: # of drive
+#define FDCT   (MEMMAP+11)	// fdc-port: # of track
+#define FDCS   (MEMMAP+12)	// fdc-port: # of sector
+#define FDCOP  (MEMMAP+13)	// fdc-port: command
+#define FDCST  (MEMMAP+14)	// fdc-port: status
+#define DMAL   (MEMMAP+15)	// dma-port: dma address low
+#define DMAH   (MEMMAP+16)	// dma-port: dma address high
 
-#define UARTDR 0xF9E0
-#define UARTIS 0xF9E1
-#define UARTOS 0xF9E2
+// グローバル領域（emu_loopの外側）
+static int disk_dma_chan = -1;         // DMAチャネル番号（-1 = 未初期化）
+static volatile bool dma_busy = false; // DMA転送中フラグ
 
 
 // コア1のエントリポイント - Z80バスエミュレーション、UARTメモリメモリマップド版
@@ -192,10 +221,20 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {;
     uint8_t data_byte = 0;
     uint NumOfLogTimes = 30; // デバッグ用、ログを表示する行数
     uint LogCount = 0;
+
     uart_tx_data = 0; // 送信データ初期化
     uart_rx_data = 0; // 受信データ初期化
     uart_tx_ready = true; // 送信準備完了
     uart_rx_ready = false; // 受信バッファは空
+
+    uint8_t current_drive = 0;
+    uint8_t current_track = 0;
+    uint8_t current_sector = 0;
+    uint8_t read_write = 0;
+    uint8_t fdc_status = 0;
+    uint8_t dma_addr_low = 0;
+    uint8_t dma_addr_high = 0;
+
     multicore_fifo_push_blocking(FLAG_VALUE);
     uint32_t g = multicore_fifo_pop_blocking();
     // GP0-29(A13:GP0,A14:GP1,D0-D7:GP2-9,A0-A12:GP10-22,MRWR#:GP25,MRRD#:GP26,A15:GP27,CLK:GP28)
@@ -210,7 +249,12 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {;
                              ((agpio >> 12) & 0x8000u);
         // UART領域(0xF9E0-0xF9EF)かどうかの判定をマスク(0xFFF0)で一括で行う
         // __builtin_expect(..., 0) でコンパイラに「基本はfalse(通常メモリ)である」と伝える
-        if (__builtin_expect((adrs_word & 0xFFF0u) == 0xF9E0u, 0)) {
+//        if (__builtin_expect((adrs_word & 0xFFE0u) == 0xF9E0u, 0)) {
+        if (adrs_word >= 0xFFE0u && adrs_word <= 0xFFF0u) {
+            // ****************************************************
+            // clk_pwm_output_off();    // クロック出力を停止
+            // flg = 1; // デバッグ用、UARTへのアクセスを表示する場合は1
+            // ****************************************************
             data_byte = (uint8_t)(agpio >> DATA_PINS_BASE);
             // --- UARTアクセス ---
             if (!(agpio & mrwr_mask)) {   // メモリーライト
@@ -224,6 +268,28 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {;
                     // }
                     // ===================================================
                     uart_tx_ready = false;
+                } else if (adrs_word == FDCD) { // 10:0x0A : ドライブ選択
+                    current_drive = data_byte;
+                    // printf("FDCD: %02X\n", current_drive);
+                } else if (adrs_word == FDCT) { // 11:0x0B : トラック選択
+                    current_track = data_byte;
+                    //  printf("FDCT: %02X\n", current_track);
+                } else if (adrs_word == FDCS) { // 12:0x0C : セクタ選択
+                    current_sector = data_byte;
+                    // printf("FDCS: %02X\n", current_sector);
+                } else if (adrs_word == FDCOP) { // 13:0x0D : コマンド (0:Read/1:Write)
+                    read_write = data_byte;
+                    // printf("FDCOP: %02X\n", read_write);
+                    if (read_write == 0) { // DISK READ
+                        memset(memory + ((dma_addr_high << 8) | dma_addr_low), 0xE5, 128);
+                    } else { // DISK WRITE
+                    }
+                } else if (adrs_word == DMAL) { // 15:0x0F : DMAアドレス
+                    dma_addr_low = data_byte;
+                    // printf("DMAL: %02X\n", dma_addr_low);
+                } else if (adrs_word == DMAH) { // 16:0x10 : DMAアドレス
+                    dma_addr_high = data_byte;
+                    // printf("DMAH: %02X\n", dma_addr_high);
                 }
             } else {                      // メモリーリード
                 if (adrs_word == UARTDR) {  // UARTDRの読み込み(受信)
@@ -235,7 +301,17 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {;
                 } else if (adrs_word == UARTOS) {   // 0xF9F2: 送信ステータス
                     data_byte = uart_tx_ready ? 0xFF : 0x00;
                 //    printf("UARTOS read: %02X %02X\n", uart_tx_ready, data_byte); // デバッグ用、送信ステータスの表示
-                }    
+                } else if (adrs_word == DMAST) { // +9 ：DMA完了ステータスポート
+                    // if (dma_busy && dma_channel_is_busy(disk_dma_chan)) {
+                    //    data_byte = 0xFF; // まだ転送中（Busy）
+                    // } else {
+                        data_byte = 0x00; // 転送完了（Ready）
+                        dma_busy = false;
+                    //}
+                } else if (adrs_word == FDCST) { // 14:0x0E : FDCステータス(0:OK/1:NG)
+                    data_byte = 0;
+                    data_byte = fdc_status;
+                }
                 pio_sm_put(pio_0, sm_emu, data_byte);   // データバスに出力
             }
         } else {
@@ -248,24 +324,24 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {;
                 pio_sm_put(pio_0, sm_emu, data_byte);
             }
         }
-#if 1
+#if 0
         count++; // デバッグ用 Z80_freq = 20-50  (20-50Hz) で使用する
         // flg = 1; // デバッグ用、全てのアクセスを表示する場合は常に1、特定の条件で表示する場合は条件式を入れる
         if (flg) {
             printf("%10u BUS:%08X ADRS:%04X DATA:%02X  A15:%d MRRD:%d MRWR:%d\n",
             count, agpio, adrs_word, (uint)data_byte, 
             (agpio >> A15_PIN) & 1, (agpio >> MRRD_PIN) & 1, (agpio >> MRWR_PIN) & 1);
-            if (LogCount == 0) {
-                clk_pwm_set_frequency(50);     // デバッグ用、クロックを50Hzにして動きを遅くする
-                clk_pwm_output_on();    // クロック出力を再開
-            }
-            if (++LogCount >= NumOfLogTimes) {
-                clk_pwm_output_off();    // クロック出力を停止
-                clk_pwm_set_frequency(2500000);     // デバッグ用、クロックを2.5MHzに戻す
-                LogCount = 0;
-                flg = 0;
-                clk_pwm_output_on();    // クロック出力を再開
-            }
+//            if (LogCount == 0) {
+//                clk_pwm_set_frequency(50);     // デバッグ用、クロックを50Hzにして動きを遅くする
+//                clk_pwm_output_on();    // クロック出力を再開
+//            }
+//            if (++LogCount >= NumOfLogTimes) {
+//                clk_pwm_output_off();    // クロック出力を停止
+//                clk_pwm_set_frequency(2500000);     // デバッグ用、クロックを2.5MHzに戻す
+//                LogCount = 0;
+              flg = 0;
+              clk_pwm_output_on();    // クロック出力を再開
+//            }
         }
 #endif
     }
@@ -380,7 +456,6 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
 
     sleep_ms(1); // 1ms待機
 
-    init_rom_basic_code(); // rom_basic_const.cから初期化
     sleep_ms(3000); // 3秒待機
 
 // [Enter]入力を待つ
@@ -393,6 +468,7 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
             break;
         }
     }
+    init_rom_basic_code(); // rom_basic_const.cから初期化
     // PWM TMPZ84C015 クロック出力初期化 (10MHz)
     printf("クロック出力(PWM) - 初期化中...\n"); 
 //   init_clk_pwm(12000000);     // 12MHz
@@ -404,9 +480,10 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
 //   init_clk_pwm(2500000);     // 2.5MHz
 //   init_clk_pwm(1000000);       // 1MHz
 //   init_clk_pwm(200000);     // 200kHz
-//   init_clk_pwm(100000);     // 100kHz
+   init_clk_pwm(100000);     // 100kHz
 //   init_clk_pwm(10000);     // 10kHz
-   init_clk_pwm(1000);     // 1kHz
+//   init_clk_pwm(1000);     // 1kHz
+//   init_clk_pwm(500);     // 500Hz
 //   init_clk_pwm(100);     // 100Hz
 //   init_clk_pwm(50);     // 50Hz
 //   init_clk_pwm(20);     // 20Hz
