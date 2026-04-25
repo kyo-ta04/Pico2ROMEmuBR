@@ -1,12 +1,11 @@
-# Pico2ROMEmu (SuperAKI80_EMBASIC_64K_RAMEmu)
+# Pico2ROMEmu (SuperAKI80 CP/M 64K RAMEmu)
 ![Pico2ROMEmuBR](./IMG/Pico2ROMEmuBR_RAMEmu_title.jpg)
-このプロジェクトは [Pico2ROMEmu](https://github.com/kyo-ta04/Pico2ROMEmuBR) を改造し、64KB RAM及びメモリマップドI/OのUARTエミュレーションで EMUBASICを動かすものです。
+このプロジェクトは [Pico2ROMEmu](https://github.com/kyo-ta04/Pico2ROMEmuBR) を改造し、64KB RAM及びメモリマップドI/OのUARTエミュレーションで CP/M v2.2を動かすものです。
 
 ## 特徴
 - Raspberry Pi Pico2 追加GPIO引出し無し（GPIO25のみ）、使用GPIOは26+1ピン。
 - RAMは 64KB全て Pico2のエミュレーション（要Super AKI-80基板上のSRAM無効化とMRWR接続）。
 - UARTエミュレーションは メモリマップドI/O使用。
-- EMUZ80 の EMUBASICが無修正で動作します。
 - リセットは手動、（要リセットSW）
 
 ## 構成
