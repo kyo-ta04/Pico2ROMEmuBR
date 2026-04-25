@@ -37,8 +37,8 @@ venv/
 
 # エディタ / IDE
 .vscode/
-!/.vscode/
-!/.vscode/settings.json
+#!/.vscode/
+#!/.vscode/settings.json
 *.code-workspace
 
 # OS / エディタ固有のゴミファイル
