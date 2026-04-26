@@ -59,16 +59,25 @@ const size_t boot_size = sizeof(boot);
 #include "ccp_bdos.h" // CCP BDOSコード
 #include "bios.h" // BIOSコード
 #include "cpm22_1.h" // CPM 2.2 Disk Image (Drive A: IBM 8" SD)
-#include "cpm22_disk1.h" // CPM 2.2 Disk Image (Drive B: IBM 8" HD)
+// #include "cpm22_disk1.h" // CPM 2.2 Disk Image (Drive B: IBM 8" HD)
 
 // ====================== 仮想ディスク定義 ======================
 // cpm2c.pyで生成された各ROM配列を一つのテーブルにまとめる
 // (128 * 26 * 77 = 256,256 / 256 * 1024 = 262,144)
 #define ROMDISK_SIZE    (256 * 1024) 
-const uint8_t *const rom_disks[] = {cpm22_1, cpm22_disk1, cpm22_1, cpm22_1}; // 4ドライブ分のROMイメージを用意
+const uint8_t *const rom_disks[] = {cpm22_1, cpm22_1, cpm22_1, cpm22_1}; // 4ドライブ分のROMイメージを用意
+// const uint8_t *const rom_disks[] = {cpm22_1, cpm22_disk1, cpm22_1, cpm22_1}; // 4ドライブ分のROMイメージを用意
+
+// // J: RAMディスク (Read/Write) - 十分なサイズを確保
+// #define RAMDISK_SIZE (128 * 1024) // 128KB
+// static uint8_t __attribute__((aligned(4))) ramdisk[RAMDISK_SIZE] = {
+//    [0 ... RAMDISK_SIZE - 1] = 0xE5 // E5で埋めて未使用にする
+// };
+
 
 // Super AKI-80(TMPZ84C015) メモリ(RAM)エミュレーション用
 static uint8_t __attribute__((aligned(4))) memory[MEMORY_SIZE] = { [0 ... MEMORY_SIZE-1] = 0xFF };
+
 
 // rom_basic[]をrom_data[]にコピーする初期化ルーチン
 void init_rom_basic_code(void) {
@@ -252,8 +261,8 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {;
                              ((agpio >> 12) & 0x8000u);
         // UART領域(0xF9E0-0xF9EF)かどうかの判定をマスク(0xFFF0)で一括で行う
         // __builtin_expect(..., 0) でコンパイラに「基本はfalse(通常メモリ)である」と伝える
-//        if (__builtin_expect((adrs_word & 0xFFE0u) == 0xF9E0u, 0)) {
-        if (adrs_word >= 0xFFE0u && adrs_word <= 0xFFF0u) { // I/O領域へのアクセスかどうかの判定
+        if (__builtin_expect((adrs_word & 0xFFE0u) == 0xFFE0u, 0)) {
+//        if (adrs_word >= 0xFFE0u && adrs_word <= 0xFFF0u) { // I/O領域へのアクセスかどうかの判定
             // ****************************************************
             // clk_pwm_output_off();    // クロック出力を停止
             // flg = 1; // デバッグ用、UARTへのアクセスを表示する場合は1
@@ -299,8 +308,8 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {;
                         //    src = cpm22_htc;
                         //    max_size = cpm22_htc_len;
                         } else if (current_drive == 9) { // J: (RAM 128KB)
-                        // src = ramdisk;
-                        // max_size = RAMDISK_SIZE;
+//                            src = ramdisk;
+//                            max_size = RAMDISK_SIZE;
                         }
                         if (src && (disk_offset + 128 <= max_size)) {
                             // // 前のDMAがまだ動いていたら強制終了（安全策）
@@ -334,6 +343,36 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {;
                             fdc_status = 1;
                         }
                     } else { // DISK WRITE
+#if 0
+                        // ==================================================
+                        uint8_t *dst = NULL;
+                        uint32_t max_size = 0;
+                        if (!(current_drive == 9)) { // J : RAM のみ書き込み許可
+                            fdc_status = 1;
+                        } else {
+                            dst = ramdisk;
+                            max_size = RAMDISK_SIZE;
+                            if (dst && disk_offset + 128 <= max_size && disk_dma_chan >= 0) {
+                                // dma_channel_config c =
+                                // dma_channel_get_default_config(disk_dma_chan);
+                                // channel_config_set_transfer_data_size(&c, DMA_SIZE_8);
+                                // channel_config_set_read_increment(&c, true);
+                                // channel_config_set_write_increment(&c, true);
+
+                                // dma_channel_configure(
+                                //    disk_dma_chan, &c,
+                                //    dst + disk_offset,     // 書き込み先（RAMディスク）
+                                //    &memory[dma_addr_z80], // 読み出し元（Z80メモリ）
+                                //    128, true);
+
+                                memcpy(dst + disk_offset, &memory[dma_addr_z80], 128);
+                                fdc_status = 0;
+                            } else {
+                                fdc_status = 1;
+                            }
+                        }
+                        // ==================================================
+#endif
                     }
                     clk_pwm_output_on();    // クロック出力を再開 ======================
                 } else if (adrs_word == DMAL) { // 15:0x0F : DMAアドレス
@@ -452,7 +491,8 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
     vreg_set_voltage(sysvolt);              // コア電圧を設定
     sleep_ms(100);                          // 電圧安定のための待機
     set_sys_clock_khz(sysclk, true);        // 高速動作
-    set_qspi_clock_divider(sysclk, 133000); // QSPIクロックを133MHz以下に
+//    set_qspi_clock_divider(sysclk, 133000); // QSPIクロックを133MHz以下に
+    set_qspi_clock_divider(sysclk, 100000); // QSPIクロックを100MHz以下に
 
     stdio_init_all();
     //setbuf(stdout, NULL);           // 標準出力のバッファリングを無効化 

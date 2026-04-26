@@ -20,7 +20,7 @@
   - [Super AKI-80の組み立て方(最少部品編)](https://note.com/quiet_duck4046/n/n32906e1dfb96?sub_rt=share_sb)  
 - ![Pico2ROMEmuBR_sch](./IMG/Pico2ROMEmuBR_RAMEmu_sch.jpg)
   - 上記は回路図の画像です。
-- ![Pico2ROMEmuBR_RUN_img](./IMG/Pico2ROMEmuBR_RAMEmu_RUN.jpg)
+- ![Pico2ROMEmuBR_RUN_img](./IMG/Pico2ROMEmuBR_CPM_RUN.png)
   - 上記は実行例画像です。
 
 ## ライセンス
