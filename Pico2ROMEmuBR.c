@@ -59,20 +59,20 @@ const size_t boot_size = sizeof(boot);
 #include "ccp_bdos.h" // CCP BDOSコード
 #include "bios.h" // BIOSコード
 #include "cpm22_1.h" // CPM 2.2 Disk Image (Drive A: IBM 8" SD)
-// #include "cpm22_disk1.h" // CPM 2.2 Disk Image (Drive B: IBM 8" HD)
+#include "cpm22_disk1.h" // CPM 2.2 Disk Image (Drive B: IBM 8" HD)
 
 // ====================== 仮想ディスク定義 ======================
 // cpm2c.pyで生成された各ROM配列を一つのテーブルにまとめる
 // (128 * 26 * 77 = 256,256 / 256 * 1024 = 262,144)
 #define ROMDISK_SIZE    (256 * 1024) 
-const uint8_t *const rom_disks[] = {cpm22_1, cpm22_1, cpm22_1, cpm22_1}; // 4ドライブ分のROMイメージを用意
-// const uint8_t *const rom_disks[] = {cpm22_1, cpm22_disk1, cpm22_1, cpm22_1}; // 4ドライブ分のROMイメージを用意
+// const uint8_t *const rom_disks[] = {cpm22_1, cpm22_1, cpm22_1, cpm22_1}; // 4ドライブ分のROMイメージを用意
+const uint8_t *const rom_disks[] = {cpm22_1, cpm22_disk1, cpm22_1, cpm22_1}; // 4ドライブ分のROMイメージを用意
 
-// // J: RAMディスク (Read/Write) - 十分なサイズを確保
-// #define RAMDISK_SIZE (128 * 1024) // 128KB
-// static uint8_t __attribute__((aligned(4))) ramdisk[RAMDISK_SIZE] = {
-//    [0 ... RAMDISK_SIZE - 1] = 0xE5 // E5で埋めて未使用にする
-// };
+// J: RAMディスク (Read/Write) - 十分なサイズを確保
+#define RAMDISK_SIZE (128 * 1024) // 128KB
+static uint8_t __attribute__((aligned(4))) ramdisk[RAMDISK_SIZE] = {
+   [0 ... RAMDISK_SIZE - 1] = 0xE5 // E5で埋めて未使用にする
+};
 
 
 // Super AKI-80(TMPZ84C015) メモリ(RAM)エミュレーション用
@@ -97,14 +97,6 @@ void init_rom_basic_code(void) {
 
 }
 
-
-// リセット解除タイマーコールバック
-int64_t reset_timer_callback(alarm_id_t id, void *user_data) {
-//    gpio_put(RESETOUT_PIN, 0);  // GP25をLow（リセット解除）
-    reset_released = true;
-    printf("リセット解除実行\n");
-    return 0;
-}
 
 
 // QSPIクロックを調整する関数
@@ -308,8 +300,8 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {;
                         //    src = cpm22_htc;
                         //    max_size = cpm22_htc_len;
                         } else if (current_drive == 9) { // J: (RAM 128KB)
-//                            src = ramdisk;
-//                            max_size = RAMDISK_SIZE;
+                            src = ramdisk;
+                            max_size = RAMDISK_SIZE;
                         }
                         if (src && (disk_offset + 128 <= max_size)) {
                             // // 前のDMAがまだ動いていたら強制終了（安全策）
@@ -343,8 +335,10 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {;
                             fdc_status = 1;
                         }
                     } else { // DISK WRITE
-#if 0
+#if 1
                         // ==================================================
+                        // printf("Write: drive=%u sec=%u track=%u\n", current_drive,
+                        //       current_sector, current_track);
                         uint8_t *dst = NULL;
                         uint32_t max_size = 0;
                         if (!(current_drive == 9)) { // J : RAM のみ書き込み許可
@@ -352,6 +346,7 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {;
                         } else {
                             dst = ramdisk;
                             max_size = RAMDISK_SIZE;
+                            disk_dma_chan = disk_dma_chan = 0; // DMAチャネル0を使用 ==== デバッグ ====
                             if (dst && disk_offset + 128 <= max_size && disk_dma_chan >= 0) {
                                 // dma_channel_config c =
                                 // dma_channel_get_default_config(disk_dma_chan);
@@ -365,6 +360,7 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {;
                                 //    &memory[dma_addr_z80], // 読み出し元（Z80メモリ）
                                 //    128, true);
 
+                                //printf("Writing to RAM disk: drive=%u sec=%u track=%u\n", current_drive, current_sector, current_track);
                                 memcpy(dst + disk_offset, &memory[dma_addr_z80], 128);
                                 fdc_status = 0;
                             } else {
@@ -491,8 +487,8 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
     vreg_set_voltage(sysvolt);              // コア電圧を設定
     sleep_ms(100);                          // 電圧安定のための待機
     set_sys_clock_khz(sysclk, true);        // 高速動作
-//    set_qspi_clock_divider(sysclk, 133000); // QSPIクロックを133MHz以下に
-    set_qspi_clock_divider(sysclk, 100000); // QSPIクロックを100MHz以下に
+    set_qspi_clock_divider(sysclk, 133000); // QSPIクロックを133MHz以下に
+//    set_qspi_clock_divider(sysclk, 100000); // QSPIクロックを100MHz以下に
 
     stdio_init_all();
     //setbuf(stdout, NULL);           // 標準出力のバッファリングを無効化 
@@ -552,7 +548,7 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
     sleep_ms(3000); // 3秒待機
 
 // [Enter]入力を待つ
-    printf("\nRev0.1 - Super AKI-80のリセットを有効にして下さい\n");
+    printf("\nRev0.2 - Super AKI-80のリセットを有効にして下さい\n");
     printf("[Enter] を押すとPico2 RAMエミュレータのテスト開始します...\n");
     while (true) {
         int c = getchar_timeout_us(100000); // 100msタイムアウト
@@ -568,9 +564,10 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
 //   init_clk_pwm(11000000);     // 11MHz
 //   init_clk_pwm(10000000);     // 10MHz
 //   init_clk_pwm(9000000);     // 9MHz
-   init_clk_pwm(8000000);     // 8MHz
+//   init_clk_pwm(8000000);     // 8MHz
+//   init_clk_pwm(6000000);     // 8MHz
 //   init_clk_pwm(5000000);     // 5MHz
-//   init_clk_pwm(2500000);     // 2.5MHz
+   init_clk_pwm(2500000);     // 2.5MHz
 //   init_clk_pwm(1000000);       // 1MHz
 //   init_clk_pwm(800000);       // 800kHz
 //   init_clk_pwm(600000);     // 600kHz
@@ -595,15 +592,25 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
 
     //  エミュレーション開始(core1)
     printf("Pico2  Core:%0.2fV Clock:%uMHz\n", volt, sysclk / 1000);
-    printf("Super AKI-80 UART通信(メモリマップド UARTDR:%04X, UARTIS:%04X, UARTOS:%04X)\n", UARTDR, UARTIS, UARTOS);
-    printf("Super AKI-80クロック出力");
-    if (current_clk_freq >= 1000000) {
+    printf("\nSuper AKI-80 (メモリマップドI/O: %04X - %04X)\n", MEMMAP, DMAH);
+    printf("クロック出力");
+        if (current_clk_freq >= 1000000) {
         printf("(PWM-%.2fMHz) - ON\n", current_clk_freq / 1000000.0f);
     } else if (current_clk_freq >= 1000) {
         printf("(PWM-%.2fKHz) - ON\n", current_clk_freq / 1000.0f);
     } else {
         printf("(PWM-%dHz) - ON\n", current_clk_freq);
     }
+    printf("** z80pack - CP/M2.2 CCP+BDOS(E400H-F9FFH), BIOS(FA00H-FC2FH), "
+         "BOOT(0000H-) **\n");
+    printf("** DISK0 A: z80pack cpm2-1.dsk   **\n");
+    printf("** DISK1 B: cpm22_disk1.dsk      **\n");
+    // printf("** DISK2 C: cpm22_tp301a.dsk     **\n");
+    // printf("** DISK3 D: cpm22_z80forth.dsk   **\n");
+    // printf("** DISK8 I: cpm22_htc.dsk(650KB) **\n");
+    printf("** DISK9 J: RAMDISK (128KB)      **\n");
+
+    
     printf("RAMエミュレータ起動 - core1\n");
     multicore_launch_core1(core1_entry);
     uint32_t g = multicore_fifo_pop_blocking();
