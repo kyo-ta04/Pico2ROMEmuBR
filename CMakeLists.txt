@@ -33,6 +33,8 @@ project(Pico2ROMEmuBR C CXX ASM)
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
+add_compile_options(-O3)
+
 # Add executable. Default name is the project name, version 0.1
 
 add_executable(Pico2ROMEmuBR Pico2ROMEmuBR.c ccp_bdos.c bios.c cpm22_1.c cpm22_disk1.c cpm22_tp301a.c cpm22_z80forth.c cpm22_htc.c)
@@ -61,6 +63,7 @@ target_include_directories(Pico2ROMEmuBR PRIVATE
 target_link_libraries(Pico2ROMEmuBR 
         hardware_pio
         hardware_pwm
+        hardware_dma
         )
 
 pico_add_extra_outputs(Pico2ROMEmuBR)
