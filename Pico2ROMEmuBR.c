@@ -60,13 +60,18 @@ const size_t boot_size = sizeof(boot);
 #include "bios.h" // BIOSコード
 #include "cpm22_1.h" // CPM 2.2 Disk Image (Drive A: IBM 8" SD)
 #include "cpm22_disk1.h" // CPM 2.2 Disk Image (Drive B: IBM 8" HD)
+#include "cpm22_tp301a.h" // CPM 2.2 Disk Image (Drive C: IBM 8" SD)
+#include "cpm22_z80forth.h" // CPM 2.2 Disk Image (Drive D: IBM 8" SD)
+#include "cpm22_htc.h" // CPM 2.2 Disk Image (Drive I: 650KB Custom)
 
 // ====================== 仮想ディスク定義 ======================
 // cpm2c.pyで生成された各ROM配列を一つのテーブルにまとめる
 // (128 * 26 * 77 = 256,256 / 256 * 1024 = 262,144)
 #define ROMDISK_SIZE    (256 * 1024) 
 // const uint8_t *const rom_disks[] = {cpm22_1, cpm22_1, cpm22_1, cpm22_1}; // 4ドライブ分のROMイメージを用意
-const uint8_t *const rom_disks[] = {cpm22_1, cpm22_disk1, cpm22_1, cpm22_1}; // 4ドライブ分のROMイメージを用意
+// const uint8_t *const rom_disks[] = {cpm22_1, cpm22_disk1, cpm22_1, cpm22_1}; // 4ドライブ分のROMイメージを用意
+const uint8_t *const rom_disks[] = {cpm22_1, cpm22_disk1, tp301a, z80forth};  // 4ドライブ分のROMイメージを用意
+ 
 
 // J: RAMディスク (Read/Write) - 十分なサイズを確保
 #define RAMDISK_SIZE (128 * 1024) // 128KB
@@ -297,8 +302,8 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {;
                             src = rom_disks[current_drive];
                             max_size = ROMDISK_SIZE;       // 256 * 1024
                         } else if (current_drive == 8) { // I: (ROM 650KB)
-                        //    src = cpm22_htc;
-                        //    max_size = cpm22_htc_len;
+                            src = cpm22_htc;
+                            max_size = cpm22_htc_len;
                         } else if (current_drive == 9) { // J: (RAM 128KB)
                             src = ramdisk;
                             max_size = RAMDISK_SIZE;
@@ -548,7 +553,7 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
     sleep_ms(3000); // 3秒待機
 
 // [Enter]入力を待つ
-    printf("\nRev0.2 - Super AKI-80のリセットを有効にして下さい\n");
+    printf("\nRev002 - Super AKI-80のリセットを有効にして下さい\n");
     printf("[Enter] を押すとPico2 RAMエミュレータのテスト開始します...\n");
     while (true) {
         int c = getchar_timeout_us(100000); // 100msタイムアウト
@@ -565,9 +570,9 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
 //   init_clk_pwm(10000000);     // 10MHz
 //   init_clk_pwm(9000000);     // 9MHz
 //   init_clk_pwm(8000000);     // 8MHz
-//   init_clk_pwm(6000000);     // 8MHz
-//   init_clk_pwm(5000000);     // 5MHz
-   init_clk_pwm(2500000);     // 2.5MHz
+//   init_clk_pwm(6000000);     // 6MHz
+   init_clk_pwm(5000000);     // 5MHz
+//   init_clk_pwm(2500000);     // 2.5MHz
 //   init_clk_pwm(1000000);       // 1MHz
 //   init_clk_pwm(800000);       // 800kHz
 //   init_clk_pwm(600000);     // 600kHz
@@ -592,7 +597,7 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
 
     //  エミュレーション開始(core1)
     printf("Pico2  Core:%0.2fV Clock:%uMHz\n", volt, sysclk / 1000);
-    printf("\nSuper AKI-80 (メモリマップドI/O: %04X - %04X)\n", MEMMAP, DMAH);
+    printf("\nSuper AKI-80 (MemoryMaped I/O: %04X - %04X)\n", MEMMAP, DMAH);
     printf("クロック出力");
         if (current_clk_freq >= 1000000) {
         printf("(PWM-%.2fMHz) - ON\n", current_clk_freq / 1000000.0f);
@@ -601,13 +606,12 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
     } else {
         printf("(PWM-%dHz) - ON\n", current_clk_freq);
     }
-    printf("** z80pack - CP/M2.2 CCP+BDOS(E400H-F9FFH), BIOS(FA00H-FC2FH), "
-         "BOOT(0000H-) **\n");
+    printf("** z80pack - CP/M2.2 CCP+BDOS(E400H-F9FFH), BIOS(FA00H-FC2FH) **\n");
     printf("** DISK0 A: z80pack cpm2-1.dsk   **\n");
     printf("** DISK1 B: cpm22_disk1.dsk      **\n");
-    // printf("** DISK2 C: cpm22_tp301a.dsk     **\n");
-    // printf("** DISK3 D: cpm22_z80forth.dsk   **\n");
-    // printf("** DISK8 I: cpm22_htc.dsk(650KB) **\n");
+    printf("** DISK2 C: cpm22_tp301a.dsk     **\n");
+    printf("** DISK3 D: cpm22_z80forth.dsk   **\n");
+    printf("** DISK8 I: cpm22_htc.dsk(650KB) **\n");
     printf("** DISK9 J: RAMDISK (128KB)      **\n");
 
     

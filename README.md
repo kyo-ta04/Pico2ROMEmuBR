@@ -20,12 +20,15 @@
   - [Super AKI-80の組み立て方(最少部品編)](https://note.com/quiet_duck4046/n/n32906e1dfb96?sub_rt=share_sb)  
 - ![Pico2ROMEmuBR_sch](./IMG/Pico2ROMEmuBR_RAMEmu_sch.jpg)
   - 上記は回路図の画像です。
-- ![Pico2ROMEmuBR_RUN_img](./IMG/Pico2ROMEmuBR_CPM_RUN.png)
+- ![Pico2ROMEmuBR_RUN_002](./IMG/Pico2ROMEmuBR_CPM_RUN_002.png)
+  - 上記は実行例画像です。
+- ![Pico2ROMEmuBR_RUN](./IMG/Pico2ROMEmuBR_CPM_RUN.png)
   - 上記は実行例画像です。
 
 ## ライセンス
 - 本プロジェクトのソースコードは MIT ライセンスです。
 - ROMデータ部分は元サイトおよび改編元など、各々のライセンスを参照してください。
+- CP/Mその他に関してはこちらをご覧ください [EMUZ80_RP2040_PCB_Firmware AE-2040_CPMブランチ](https://github.com/kyo-ta04/EMUZ80_RP2040_PCB_Firmware/tree/AE-2040_CPM)
 
 ## 免責事項
 本ソフトウェアは現状のまま提供されます。いかなる損害についても作者は責任を負いません。
