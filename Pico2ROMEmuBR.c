@@ -283,7 +283,7 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {;
                     // ------------------------------------------------------------------
                     // READ-WRITE 処理 (ioadrs == 0x0D 内)
                     // ------------------------------------------------------------------
-                    clk_pwm_output_off();    // クロック出力を停止 ==================
+                    // clk_pwm_output_off();    // クロック出力を停止 ==================
                     read_write = data_byte;
                     // printf("FDCOP: %02X\n", read_write);
                     uint16_t dma_addr_z80 = ((uint16_t)dma_addr_high << 8) | dma_addr_low;
@@ -375,7 +375,7 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {;
                         // ==================================================
 #endif
                     }
-                    clk_pwm_output_on();    // クロック出力を再開 ======================
+                    // clk_pwm_output_on();    // クロック出力を再開 ======================
                 } else if (adrs_word == DMAL) { // 15:0x0F : DMAアドレス
                     dma_addr_low = data_byte;
                     // printf("DMAL: %02X\n", dma_addr_low);
@@ -571,16 +571,17 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
 //   init_clk_pwm(9000000);     // 9MHz
 //   init_clk_pwm(8000000);     // 8MHz
 //   init_clk_pwm(6000000);     // 6MHz
-   init_clk_pwm(5000000);     // 5MHz
+//   init_clk_pwm(5000000);     // 5MHz
 //   init_clk_pwm(2500000);     // 2.5MHz
 //   init_clk_pwm(1000000);       // 1MHz
 //   init_clk_pwm(800000);       // 800kHz
 //   init_clk_pwm(600000);     // 600kHz
 //   init_clk_pwm(500000);     // 500kHz
+   init_clk_pwm(400000);     // 400kHz
 //   init_clk_pwm(200000);     // 200kHz
 //   init_clk_pwm(100000);     // 100kHz
 //   init_clk_pwm(10000);     // 10kHz
-//   init_clk_pwm(1000);     // 1kHz
+// init_clk_pwm(1000);     // 1kHz
 //   init_clk_pwm(500);     // 500Hz
 //   init_clk_pwm(100);     // 100Hz
 //   init_clk_pwm(50);     // 50Hz
