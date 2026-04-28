@@ -36,6 +36,7 @@ venv/
 .venv/
 
 # エディタ / IDE
+.cache/
 .vscode/
 #!/.vscode/
 #!/.vscode/settings.json
