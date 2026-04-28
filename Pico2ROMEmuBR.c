@@ -64,21 +64,22 @@ const size_t boot_size = sizeof(boot);
 #include "bios.h"     // BIOSコード
 #include "ccp_bdos.h" // CCP BDOSコード
 #include "cpm22_1.h"  // CPM 2.2 Disk Image (Drive A: IBM 8" SD)
-#if 0
+#if 1
 #include "cpm22_disk1.h"    // CPM 2.2 Disk Image (Drive B: IBM 8" HD)
 #include "cpm22_htc.h"      // CPM 2.2 Disk Image (Drive I: 650KB Custom)
 #include "cpm22_tp301a.h"   // CPM 2.2 Disk Image (Drive C: IBM 8" SD)
 #include "cpm22_z80forth.h" // CPM 2.2 Disk Image (Drive D: IBM 8" SD)
+
 #endif
 
 // ====================== 仮想ディスク定義 ======================
 // cpm2c.pyで生成された各ROM配列を一つのテーブルにまとめる
 // (128 * 26 * 77 = 256,256 / 256 * 1024 = 262,144)
 #define ROMDISK_SIZE (256 * 1024)
-const uint8_t *const rom_disks[] = {cpm22_1, cpm22_1, cpm22_1, cpm22_1}; //
+// const uint8_t *const rom_disks[] = {cpm22_1, cpm22_1, cpm22_1, cpm22_1}; //
 // 4ドライブ分のROMイメージを用意
 // const uint8_t *const rom_disks[] = {cpm22_1, cpm22_disk1, cpm22_1, cpm22_1};
-// const uint8_t *const rom_disks[] = {cpm22_1, cpm22_disk1, tp301a, z80forth};
+const uint8_t *const rom_disks[] = {cpm22_1, cpm22_disk1, tp301a, z80forth};
 // // 4ドライブ分のROMイメージを用意
 
 // J: RAMディスク (Read/Write) - 十分なサイズを確保
@@ -189,24 +190,17 @@ uint sm_trg_r = 0;
 uint sm_trg_w = 1;
 
 // 通信専用のコア0,1で共有するUART通信のためのグローバル変数
-static volatile uint8_t __attribute__((section(
-    ".scratch_x"))) uart_tx_data; // 送信データバッファ(Z80からPicoへ: 1バイト)
-static volatile uint8_t __attribute__((section(
-    ".scratch_x"))) uart_rx_data; // 受信データバッファ(PicoからZ80へ: 1バイト)
-static volatile bool __attribute__((section(
-    ".scratch_x"))) uart_tx_ready; // 送信可フラグ (true=Ready, false=Busy)
-static volatile bool __attribute__((section(
-    ".scratch_x"))) uart_rx_ready; // 受信完了フラグ (true=Ready, false=Empty)
+static volatile uint8_t __attribute__((section(".scratch_x"))) uart_tx_data; // 送信データバッファ(Z80からPicoへ: 1バイト)
+static volatile uint8_t __attribute__((section(".scratch_x"))) uart_rx_data; // 受信データバッファ(PicoからZ80へ: 1バイト)
+static volatile bool __attribute__((section(".scratch_x"))) uart_tx_ready; // 送信可フラグ (true=Ready, false=Busy)
+static volatile bool __attribute__((section(".scratch_x"))) uart_rx_ready; // 受信完了フラグ (true=Ready, false=Empty)
 
-// Memory Maped I/O UART - UARTDR(DataReg.):E000H, UARTCR(Ctrl-Reg.):E001H
-// b0=受信文字あり,b1=送信可 F9F0 - F9F1
+// Memory Maped I/O
 
-// #define UARTDR 0xE000
-// #define UARTCR 0xE001
 #define MEMMAP 0xFFE0       // メモリマップドI/Oのベースアドレス
-#define UARTDR (MEMMAP + 0) // 0xF9E0 : UART Data Register
-#define UARTIS (MEMMAP + 1) // 0xF9E1 : UART Interrupt Status Register
-#define UARTOS (MEMMAP + 2) // 0xF9E2 : UART Output Status Register
+#define UARTDR (MEMMAP + 0) // 0xFFE0 : UART Data Register
+#define UARTIS (MEMMAP + 1) // 0xFFE1 : UART Interrupt Status Register
+#define UARTOS (MEMMAP + 2) // 0xFFE2 : UART Output Status Register
 #define DMAST (MEMMAP + 9)  // DMA status
 #define FDCD (MEMMAP + 10)  // fdc-port: # of drive
 #define FDCT (MEMMAP + 11)  // fdc-port: # of track
@@ -220,6 +214,14 @@ static volatile bool __attribute__((section(
 static int disk_dma_chan = -1;         // DMAチャネル番号（-1 = 未初期化）
 static volatile bool dma_busy = false; // DMA転送中フラグ
 
+// FDC状態変数（core1からのみアクセス）
+static uint8_t current_drive = 0;
+static uint8_t current_track = 0;
+static uint8_t current_sector = 0;
+static uint8_t fdc_status = 0;
+static uint8_t dma_addr_low = 0;
+static uint8_t dma_addr_high = 0;
+
 void init_disk_dma(void) {
   if (disk_dma_chan < 0) {
     disk_dma_chan = dma_claim_unused_channel(true); // 自動で空きチャネル取得
@@ -228,26 +230,88 @@ void init_disk_dma(void) {
   }
 }
 
+// FDCOPコマンド処理（重いDMA設定を隔離）
+void __time_critical_func(handle_fdcop)(uint8_t data_byte) {
+  uint8_t read_write = data_byte;
+  uint16_t dma_addr_z80 = ((uint16_t)dma_addr_high << 8) | dma_addr_low;
+  uint32_t logical_sector = (current_sector >= 1) ? (current_sector - 1) : 0;
+  uint32_t disk_offset =
+      ((uint32_t)current_track * 26 + logical_sector) * 128UL;
+
+  if (read_write == 0) { // DISK READ
+    const uint8_t *src = NULL;
+    uint32_t max_size = 0;
+    if (current_drive <= 3) { // A, B, C, D (ROM 256KB)
+      src = rom_disks[current_drive];
+      max_size = ROMDISK_SIZE;
+#if 1
+    } else if (current_drive == 8) { // I: (ROM 650KB)
+      src = cpm22_htc;
+      max_size = cpm22_htc_len;
+#endif
+    } else if (current_drive == 9) { // J: (RAM 128KB)
+      src = ramdisk;
+      max_size = RAMDISK_SIZE;
+    }
+    if (src && (disk_offset + 128 <= max_size)) {
+      if (dma_channel_is_busy(disk_dma_chan)) {
+        dma_channel_abort(disk_dma_chan);
+      }
+      dma_channel_config c = dma_channel_get_default_config(disk_dma_chan);
+      channel_config_set_transfer_data_size(&c, DMA_SIZE_8);
+      channel_config_set_read_increment(&c, true);
+      channel_config_set_write_increment(&c, true);
+      dma_channel_configure(disk_dma_chan, &c, &memory[dma_addr_z80],
+                            src + disk_offset, 128, true);
+      dma_busy = true;
+      fdc_status = 0;
+    } else {
+      memset(&memory[dma_addr_z80], 0xE5, 128);
+      fdc_status = 1;
+    }
+  } else {                    // DISK WRITE
+    if (current_drive != 9) { // J : RAM のみ書き込み許可
+      fdc_status = 1;
+    } else {
+      uint8_t *dst = ramdisk;
+      uint32_t max_size = RAMDISK_SIZE;
+      if (dst && disk_offset + 128 <= max_size && disk_dma_chan >= 0) {
+        dma_channel_config c = dma_channel_get_default_config(disk_dma_chan);
+        channel_config_set_transfer_data_size(&c, DMA_SIZE_8);
+        channel_config_set_read_increment(&c, true);
+        channel_config_set_write_increment(&c, true);
+        dma_channel_configure(disk_dma_chan, &c, dst + disk_offset,
+                              &memory[dma_addr_z80], 128, true);
+        dma_busy = true;
+        fdc_status = 0;
+      } else {
+        fdc_status = 1;
+      }
+    }
+  }
+}
+
 // コア1のエントリポイント - Z80バスエミュレーション、UARTメモリメモリマップド版
-__attribute__((noinline)) void __time_critical_func(core1_entry)(void) {
+// __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {
+void __time_critical_func(core1_entry)(void) {
+#if 0
   uint32_t count = 0;
   uint flg = 0;
-  uint8_t data_byte = 0;
   uint NumOfLogTimes = 30; // デバッグ用、ログを表示する行数
   uint LogCount = 0;
+#endif
+
+  uint8_t data_byte = 0;
 
   uart_tx_data = 0;      // 送信データ初期化
   uart_rx_data = 0;      // 受信データ初期化
   uart_tx_ready = true;  // 送信準備完了
   uart_rx_ready = false; // 受信バッファは空
 
-  uint8_t current_drive = 0;
-  uint8_t current_track = 0;
-  uint8_t current_sector = 0;
-  uint8_t read_write = 0;
-  uint8_t fdc_status = 0;
-  uint8_t dma_addr_low = 0;
-  uint8_t dma_addr_high = 0;
+  // PWMスライスのレジスタアドレスをループ外でキャッシュ
+  volatile uint32_t *pwm_csr = &pwm_hw->slice[clk_pwm_slice_num].csr;
+  uint32_t csr_on = *pwm_csr | PWM_CH0_CSR_EN_BITS;   // EN=1
+  uint32_t csr_off = *pwm_csr & ~PWM_CH0_CSR_EN_BITS; // EN=0
 
   multicore_fifo_push_blocking(FLAG_VALUE);
   uint32_t g = multicore_fifo_pop_blocking();
@@ -256,175 +320,73 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {
   init_disk_dma();
   while (true) {
     uint32_t agpio = pio_sm_get_blocking(pio_0, sm_emu); // GPIO0-29の値を取得
-    // === 最速アドレス計算（branchless + 最小演算）===
     // A0-A12: agpio[22:10], A13-A14: agpio[1:0], A15: agpio[27]
     // 27bit目を15bit目に持ってくるため右に12シフトし、0x8000でマスク
     uint32_t adrs_word = ((agpio >> ADDR_PINS_BASE) & 0x1FFFu) |
                          ((agpio & 0x3u) << 13) | ((agpio >> 12) & 0x8000u);
     // UART領域(0xFFE0-0xFFF0)かどうかの判定をマスク(0xFFF0)で一括で行う
-    // __builtin_expect(..., 0)
-    // でコンパイラに「基本はfalse(通常メモリ)である」と伝える
+    // __builtin_expect(..., 0) でコンパイラに「基本はfalse(通常メモリ)である」と伝える
     if (__builtin_expect((adrs_word & 0xFFE0u) == 0xFFE0u, 0)) {
-      //        if (adrs_word >= 0xFFE0u && adrs_word <= 0xFFF0u) { //
-      //        I/O領域へのアクセスかどうかの判定
-      // ****************************************************
-      // clk_pwm_output_off();    // クロック出力を停止
-      // flg = 1; // デバッグ用、UARTへのアクセスを表示する場合は1
-      // ****************************************************
+      // I/O領域へのアクセス
+      *pwm_csr = csr_off;        // クロック停止
+      uint32_t io_port = adrs_word & 0x1Fu; // 下位5ビット (0x00〜0x10)
       data_byte = (uint8_t)(agpio >> DATA_PINS_BASE);
-      // --- UARTアクセス ---
-      if (!(agpio & mrwr_mask)) {  // メモリーライト
-        if (adrs_word == UARTDR) { // UARTDRへの書き込み(送信)
+      if (!(agpio & mrwr_mask)) { // メモリーライト
+        switch (io_port) {
+        case 0x00: // UARTDR: 送信
           uart_tx_data = data_byte;
           uart_tx_ready = false;
-        } else if (adrs_word == FDCD) { // 10:0x0A : ドライブ選択
+          break;
+        case 0x0A: // FDCD: ドライブ選択
           current_drive = data_byte;
-          // printf("FDCD: %02X\n", current_drive);
-        } else if (adrs_word == FDCT) { // 11:0x0B : トラック選択
+          break;
+        case 0x0B: // FDCT: トラック選択
           current_track = data_byte;
-          //  printf("FDCT: %02X\n", current_track);
-        } else if (adrs_word == FDCS) { // 12:0x0C : セクタ選択
+          break;
+        case 0x0C: // FDCS: セクタ選択
           current_sector = data_byte;
-          // printf("FDCS: %02X\n", current_sector);
-        } else if (adrs_word == FDCOP) { // 13:0x0D : コマンド (0:Read/1:Write)
-          // ------------------------------------------------------------------
-          // READ-WRITE 処理 (ioadrs == 0x0D 内)
-          // ------------------------------------------------------------------
-          // clk_pwm_output_off();    // クロック出力を停止 ==================
-          read_write = data_byte;
-          // printf("FDCOP: %02X\n", read_write);
-          uint16_t dma_addr_z80 = ((uint16_t)dma_addr_high << 8) | dma_addr_low;
-          // オフセット計算 (128バイト * (トラック * 26 + セクタ-1))
-          uint32_t logical_sector =
-              (current_sector >= 1) ? (current_sector - 1) : 0;
-          uint32_t disk_offset =
-              ((uint32_t)current_track * 26 + logical_sector) * 128UL;
-
-          if (read_write == 0) { // DISK READ
-            //    memset(memory + ((dma_addr_high << 8) | dma_addr_low), 0xE5,
-            //    128);
-            const uint8_t *src = NULL;
-            uint8_t *dst = NULL;
-            uint32_t max_size = 0;
-            // printf("Read : drive=%u sec=%u track=%u\n", current_drive,
-            //       current_sector, current_track);
-            if (current_drive <= 3) { // A, B, C, D (ROM 256KB)
-              src = rom_disks[current_drive];
-              max_size = ROMDISK_SIZE; // 256 * 1024
-#if 0
-            } else if (current_drive == 8) { // I: (ROM 650KB)
-              src = cpm22_htc;
-              max_size = cpm22_htc_len;
-#endif
-            } else if (current_drive == 9) { // J: (RAM 128KB)
-              src = ramdisk;
-              max_size = RAMDISK_SIZE;
-            }
-            if (src && (disk_offset + 128 <= max_size)) {
-              // 前のDMAがまだ動いていたら強制終了（安全策）
-              if (dma_channel_is_busy(disk_dma_chan)) {
-                dma_channel_abort(disk_dma_chan);
-              }
-              // uint32_t start = time_us_32(); // 時間測定
-              // DMAで128バイトコピー開始（即時）
-              dma_channel_config c =
-                  dma_channel_get_default_config(disk_dma_chan);
-              channel_config_set_transfer_data_size(&c, DMA_SIZE_8); // 8bit
-              channel_config_set_read_increment(&c, true);
-              channel_config_set_write_increment(&c, true);
-              // channel_config_set_dreq(&c, 0); // 常に即時（デフォルト）
-              dma_channel_configure(
-                  disk_dma_chan, &c,
-                  &memory[dma_addr_z80], // 書き込み先（Z80メモリ）
-                  src + disk_offset,     // 読み出し元
-                  128,                   // 転送数（バイト）
-                  true);                 // 即開始
-              // 転送終了待ちする場合
-              // dma_channel_wait_for_finish_blocking(disk_dma_chan);
-              // uint32_t end = time_us_32();    // 時間測定
-              // printf("Read 128B: %u us\n", end - start);
-              dma_busy = true; // DMA開始
-              // ==================================================
-              // clk_pwm_output_off();    // クロック出力を停止
-              // memcpy(&memory[dma_addr_z80], src + disk_offset, 128);
-              // ==================================================
-              fdc_status = 0; // 即OK返却（DMAはバックグラウンド）
-            } else {
-              memset(&memory[dma_addr_z80], 0xE5, 128);
-              fdc_status = 1;
-            }
-          } else { // DISK WRITE
-#if 1
-            // ==================================================
-            // printf("Write: drive=%u sec=%u track=%u\n", current_drive,
-            //       current_sector, current_track);
-            uint8_t *dst = NULL;
-            uint32_t max_size = 0;
-            if (!(current_drive == 9)) { // J : RAM のみ書き込み許可
-              fdc_status = 1;
-            } else {
-              dst = ramdisk;
-              max_size = RAMDISK_SIZE;
-              // disk_dma_chan = disk_dma_chan =
-              //    0; // DMAチャネル0を使用 ==== デバッグ ====
-              if (dst && disk_offset + 128 <= max_size && disk_dma_chan >= 0) {
-                dma_channel_config c =
-                    dma_channel_get_default_config(disk_dma_chan);
-                channel_config_set_transfer_data_size(&c, DMA_SIZE_8);
-                channel_config_set_read_increment(&c, true);
-                channel_config_set_write_increment(&c, true);
-
-                dma_channel_configure(
-                    disk_dma_chan, &c,
-                    dst + disk_offset,     // 書き込み先（RAMディスク）
-                    &memory[dma_addr_z80], // 読み出し元（Z80メモリ）
-                    128, true);
-                dma_busy = true; // DMA開始
-                // printf("Writing to RAM disk: drive=%u sec=%u track=%u\n",
-                // current_drive, current_sector, current_track);
-                // memcpy(dst + disk_offset, &memory[dma_addr_z80], 128);
-                fdc_status = 0;
-              } else {
-                fdc_status = 1;
-              }
-            }
-            // ==================================================
-#endif
-          }
-          // clk_pwm_output_on();    // クロック出力を再開
-          // ======================
-        } else if (adrs_word == DMAL) { // 15:0x0F : DMAアドレス
+          break;
+        case 0x0D: // FDCOP: コマンド (重い処理だけ関数呼び出し)
+          handle_fdcop(data_byte);
+          break;
+        case 0x0F: // DMAL: DMAアドレス下位
           dma_addr_low = data_byte;
-          // printf("DMAL: %02X\n", dma_addr_low);
-        } else if (adrs_word == DMAH) { // 16:0x10 : DMAアドレス
+          break;
+        case 0x10: // DMAH: DMAアドレス上位
           dma_addr_high = data_byte;
-          // printf("DMAH: %02X\n", dma_addr_high);
+          break;
+        default:
+          break;
         }
-      } else {                     // メモリーリード
-        if (adrs_word == UARTDR) { // UARTDRの読み込み(受信)
+      } else { // メモリーリード
+        switch (io_port) {
+        case 0x00: // UARTDR: 受信
           data_byte = uart_rx_data;
           uart_rx_ready = false;
-        } else if (adrs_word == UARTIS) { // 0xF9F1: 受信ステータス
+          break;
+        case 0x01: // UARTIS: 受信ステータス
           data_byte = uart_rx_ready ? 0xFF : 0x00;
-          //    printf("UARTIS read: %02X %02X\n", uart_rx_ready, data_byte); //
-          //    デバッグ用、受信ステータスの表示
-        } else if (adrs_word == UARTOS) { // 0xF9F2: 送信ステータス
+          break;
+        case 0x02: // UARTOS: 送信ステータス
           data_byte = uart_tx_ready ? 0xFF : 0x00;
-          //    printf("UARTOS read: %02X %02X\n", uart_tx_ready, data_byte); //
-          //    デバッグ用、送信ステータスの表示
-        } else if (adrs_word == DMAST) { // +9 ：DMA完了ステータスポート
+          break;
+        case 0x09: // DMAST: DMA完了ステータス
           if (dma_busy && dma_channel_is_busy(disk_dma_chan)) {
             data_byte = 0xFF; // まだ転送中（Busy）
           } else {
             data_byte = 0x00; // 転送完了（Ready）
             dma_busy = false;
           }
-        } else if (adrs_word == FDCST) { // 14:0x0E : FDCステータス(0:OK/1:NG)
-          // data_byte = 0;
+          break;
+        case 0x0E: // FDCST: FDCステータス(0:OK/1:NG)
           data_byte = fdc_status;
+          break;
+        default:
+          break;
         }
         pio_sm_put(pio_0, sm_emu, data_byte); // データバスに出力
       }
+      *pwm_csr = csr_on; // クロック再開
     } else {
       // --- 通常RAM/ROMアクセス (HOT PATH: 最速で処理する) ---
       if (!(agpio & mrwr_mask)) { // メモリーライト
@@ -459,7 +421,7 @@ __attribute__((noinline)) void __time_critical_func(core1_entry)(void) {
 }
 
 // --- UART Task (Core 0) ---
-void UART_task(void) {
+void __time_critical_func(UART_task)(void) {
   printf("task UART start..\n\n");
   while (true) {
     // 送信処理 (Z80 -> USB)
@@ -479,7 +441,6 @@ void UART_task(void) {
         }
         printf("[%02X]\n", uart_tx_data); // デバッグ用送信データ表示
 #endif
-        // __dmb();
         uart_tx_ready = true; // 送信完了（readyに戻す）
       }
     }
@@ -488,7 +449,6 @@ void UART_task(void) {
       int c = getchar_timeout_us(0);
       if (c != PICO_ERROR_TIMEOUT) {
         uart_rx_data = (uint8_t)c;
-        // __dmb();
         uart_rx_ready = true;
       }
     }
@@ -499,20 +459,22 @@ void UART_task(void) {
 //
 // メインルーチン
 //
-__attribute__((noinline)) int __time_critical_func(main)(void) {
+int main(void) {
   uint32_t sysclk = clock_get_hz(clk_sys);
   int sysvolt = VREG_VOLTAGE_1_30;
   // int sysvolt = VREG_VOLTAGE_1_15;
   // int sysvolt = VREG_VOLTAGE_1_10;
 
   //    sysclk = 360 * 1000;                    // Pico2 システムクロック
-  //    280/320/360MHz
-  sysclk = 380 * 1000;             // Pico2 システムクロック 280/320/360M/380Hz
+  //  sysclk = 380 * 1000;
+  sysclk = 384 * 1000;
+  // sysclk = 388 * 1000;
+  // sysclk = 392 * 1000;
+  
   vreg_set_voltage(sysvolt);       // コア電圧を設定
   sleep_ms(100);                   // 電圧安定のための待機
   set_sys_clock_khz(sysclk, true); // 高速動作
   set_qspi_clock_divider(sysclk, 133000); // QSPIクロックを133MHz以下に
-  //    set_qspi_clock_divider(sysclk, 100000); // QSPIクロックを100MHz以下に
 
   stdio_init_all();
   // setbuf(stdout, NULL);           // 標準出力のバッファリングを無効化
@@ -577,7 +539,7 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
   sleep_ms(3000); // 3秒待機
 
   // [Enter]入力を待つ
-  printf("\nRev002 - Super AKI-80のリセットを有効にして下さい\n");
+  printf("\nRev003 - Super AKI-80のリセットを有効にして下さい\n");
   printf("[Enter] を押すとPico2 RAMエミュレータのテスト開始します...\n");
   while (true) {
     int c = getchar_timeout_us(100000); // 100msタイムアウト
@@ -588,28 +550,28 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
   }
   init_ram_code(); // memory[]初期化
   // PWM TMPZ84C015 クロック出力初期化 (10MHz)
-  printf("クロック出力(PWM) - 初期化中...\n");
   //   init_clk_pwm(12000000);     // 12MHz
   //   init_clk_pwm(11000000);     // 11MHz
-  //   init_clk_pwm(10000000);     // 10MHz
-  //   init_clk_pwm(9000000);     // 9MHz
-  //   init_clk_pwm(8000000);     // 8MHz
-  // init_clk_pwm(6000000); // 6MHz
-  init_clk_pwm(5000000); // 5MHz
-  // init_clk_pwm(2500000); // 2.5MHz
-  // init_clk_pwm(1000000); // 1MHz
-  //   init_clk_pwm(800000);       // 800kHz
-  //   init_clk_pwm(600000);     // 600kHz
-  //   init_clk_pwm(500000);     // 500kHz
-  // init_clk_pwm(400000); // 400kHz
-  // init_clk_pwm(200000); // 200kHz
-  //   init_clk_pwm(100000);     // 100kHz
-  //   init_clk_pwm(10000);     // 10kHz
-  // init_clk_pwm(1000);     // 1kHz
+  init_clk_pwm(10000000); // 10MHz
+  //   init_clk_pwm(9000000); // 9MHz
+  //   init_clk_pwm(8000000); // 8MHz
+  //   init_clk_pwm(6000000); // 6MHz
+  //   init_clk_pwm(5000000); // 5MHz
+  //   init_clk_pwm(4000000); // 4MHz
+  //   init_clk_pwm(2500000); // 2.5MHz
+  //   init_clk_pwm(1000000); // 1MHz
+  //   init_clk_pwm(800000);  // 800kHz
+  //   init_clk_pwm(600000);  // 600kHz
+  //   init_clk_pwm(500000);  // 500kHz
+  //   init_clk_pwm(400000);  // 400kHz
+  //   init_clk_pwm(200000);  // 200kHz
+  //   init_clk_pwm(100000);  // 100kHz
+  //   init_clk_pwm(10000);   // 10kHz
+  //   init_clk_pwm(1000);    // 1kHz
   //   init_clk_pwm(500);     // 500Hz
   //   init_clk_pwm(100);     // 100Hz
-  //   init_clk_pwm(50);     // 50Hz
-  //   init_clk_pwm(20);     // 20Hz
+  //   init_clk_pwm(50);      // 50Hz
+  //   init_clk_pwm(20);      // 20Hz
   float volt = 0;
   if (sysvolt == VREG_VOLTAGE_1_10)
     volt = 1.10;
@@ -622,14 +584,14 @@ __attribute__((noinline)) int __time_critical_func(main)(void) {
 
   //  エミュレーション開始(core1)
   printf("Pico2  Core:%0.2fV Clock:%uMHz\n", volt, sysclk / 1000);
-  printf("\nSuper AKI-80 (MemoryMaped I/O: %04X - %04X)\n", MEMMAP, DMAH);
+  printf("\nSuper AKI-80 (MemoryMaped I/O:%04X-%04X, CLK-STOP)\n", MEMMAP, DMAH);
   printf("クロック出力");
   if (current_clk_freq >= 1000000) {
-    printf("(PWM-%.2fMHz) - ON\n", current_clk_freq / 1000000.0f);
+    printf(" PWM: %.2fMHz\n", current_clk_freq / 1000000.0f);
   } else if (current_clk_freq >= 1000) {
-    printf("(PWM-%.2fKHz) - ON\n", current_clk_freq / 1000.0f);
+    printf(" PWM: %.2fKHz\n", current_clk_freq / 1000.0f);
   } else {
-    printf("(PWM-%dHz) - ON\n", current_clk_freq);
+    printf(" PWM: %dHz\n", current_clk_freq);
   }
   printf("** z80pack - CP/M2.2 CCP+BDOS(E400H-F9FFH), BIOS(FA00H-FC2FH) **\n");
   printf("** DISK0 A: z80pack cpm2-1.dsk   **\n");
