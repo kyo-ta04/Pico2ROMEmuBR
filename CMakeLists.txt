@@ -37,7 +37,7 @@ add_compile_options(-O3)
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(Pico2ROMEmuBR Pico2ROMEmuBR.c ccp_bdos.c bios.c cpm22_1.c cpm22_disk1.c cpm22_tp301a.c cpm22_z80forth.c cpm22_htc.c)
+add_executable(Pico2ROMEmuBR Pico2ROMEmuBR.c CPM/ccp_bdos.c CPM/bios.c CPM/cpm22_1.c CPM/cpm22_disk1.c CPM/cpm22_tp301a.c CPM/cpm22_z80forth.c CPM/cpm22_htc.c)
 
 pico_set_program_name(Pico2ROMEmuBR "Pico2ROMEmuBR")
 pico_set_program_version(Pico2ROMEmuBR "0.1")
@@ -57,6 +57,7 @@ target_link_libraries(Pico2ROMEmuBR
 # Add the standard include files to the build
 target_include_directories(Pico2ROMEmuBR PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
+        ${CMAKE_CURRENT_LIST_DIR}/CPM
 )
 
 # Add any user requested libraries

@@ -461,15 +461,18 @@ void __time_critical_func(UART_task)(void) {
 //
 int main(void) {
   uint32_t sysclk = clock_get_hz(clk_sys);
+
+  // Pico2 システムコア電圧
   int sysvolt = VREG_VOLTAGE_1_30;
   // int sysvolt = VREG_VOLTAGE_1_15;
   // int sysvolt = VREG_VOLTAGE_1_10;
 
-  //    sysclk = 360 * 1000;                    // Pico2 システムクロック
-  //  sysclk = 380 * 1000;
-  sysclk = 384 * 1000;
-  // sysclk = 388 * 1000;
+  // Pico2 システムクロック
   // sysclk = 392 * 1000;
+  // sysclk = 388 * 1000;
+  sysclk = 384 * 1000;
+  // sysclk = 380 * 1000;
+  // sysclk = 360 * 1000; 
   
   vreg_set_voltage(sysvolt);       // コア電圧を設定
   sleep_ms(100);                   // 電圧安定のための待機
