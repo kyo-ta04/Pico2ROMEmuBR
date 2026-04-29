@@ -41,6 +41,7 @@ venv/
 #!/.vscode/
 #!/.vscode/settings.json
 *.code-workspace
+.cache/
 
 # OS / エディタ固有のゴミファイル
 Thumbs.db
