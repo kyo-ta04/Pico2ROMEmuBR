@@ -6,28 +6,25 @@
 - Raspberry Pi Pico2 追加GPIO引出し無し（GPIO25のみ）、使用GPIOは26+1ピン。
 - RAMは 64KB全て Pico2のエミュレーション（要Super AKI-80基板上のSRAM無効化とMRWR接続）。
 - UART及びROM/RAMディスクエミュレーションは メモリマップドI/Oを使用。
-- リセットは手動、（要リセットSW）
+- リセットは手動、（要リセットSW）。
+- ファームウェアは EMUZ80_RP2040_PCB_Firmwareを元にしています、詳しくはこちらをどうぞ  
+ -> [EMUZ80_RP2040_PCB_Firmware AE-2040_CPMブランチ](https://github.com/kyo-ta04/EMUZ80_RP2040_PCB_Firmware/tree/AE-2040_CPM)
 
 ## 構成
 - KiCad 回路・基板データはこちら -> [Pico2ROMEmu_PCB](https://github.com/kyo-ta04/Pico2ROMEmu_PCB)
-- CP/M 関係は z80pack、Z80-MBC2、The Unofficial CP/M Web site 等が元です。
+- CP/M 関係は z80pack、Z80-MBC2、The Unofficial CP/M Web site 等を元にしています。
     - z80pack - [unix4fun](http://cpmarchives.classiccmp.org/cpm/mirrors/www.autometer.de/unix4fun/z80pack/index.html), 
     [github](https://github.com/udo-munk/z80pack)
     - Z80-MBC2 - [Hackaday.io](https://hackaday.io/project/159973-z80-mbc2-a-4-ics-homebrew-z80-computer),
     [github](https://github.com/z80-mbc2/Z80-MBC2)
     - The Unofficial CP/M Web site - [cpm.z80.de](http://www.cpm.z80.de/)
 - Super AKI-80(Z80) バスエミュレーションは EMUZ80、 emuz80_pico2等を参考にさせていただいてます。
-    - EMUZ80 - [github](https://github.com/jCW299/emuz80) 
-    - [電脳伝説](https://vintagechips.wordpress.com/)
-    - [Super AKI-80](https://github.com/retro75/superaki-80/)
-    - [Super AKI-80の組み立て方(最少部品編)](https://note.com/quiet_duck4046/n/n32906e1dfb96?sub_rt=share_sb)
+    - EMUZ80 （@vintagechips氏作）- [電脳伝説ブログ](https://vintagechips.wordpress.com/2022/03/05/emuz80_reference/), 
+    [github](https://github.com/jCW299/emuz80) 
+    - emuz80_pico2（@tendai22plus氏作） - [github](https://github.com/tendai22/emuz80_pico2)
+- Super AKI-80
+    - 秋月電子 - [スーパーAKI-80 (基板単体、保守部品)](https://akizukidenshi.com/catalog/g/g111324/)
 
-[Z80-MBC2](https://z80-mbc2.github.io/)、 及び Z80-MBC2 を参考にさせていただいてます。　参考: 、
-[CP/M関係](https://www.retrocomputing.stackexchange.com/questions/15777/running-cpm-3-on-z80-processor-with-4mb-of-ram) 
- 
- [EMUZ80_RP2040_PCB_Firmware AE-2040_CPMブランチ](https://github.com/kyo-ta04/EMUZ80_RP2040_PCB_Firmware/tree/AE-2040_CPM) を参考にさせていただいてます。　参考: [EMUZ80_RP2040_PCB_Firmware AE-2040_CPMブランチ](https://github.com/kyo-ta04/EMUZ80_RP2040_PCB_Firmware/tree/AE-2040_CPM) 
-
-- RP2350 PIO ROMエミュレーション部分は @tendai22plus さんの [ROMエミュレーション](https://github.com/tendai22/emuz80_pico2/blob/main/doc/ROM_EMULATION.md) を参考にさせていただいてます。　参考: [emuz80_pico2](https://github.com/tendai22/emuz80_pico2) 
 
 ## 回路図・資料
 - 組み立て方の資料(not.com) 
