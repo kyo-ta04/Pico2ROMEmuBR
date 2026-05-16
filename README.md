@@ -7,7 +7,8 @@
 - Raspberry Pi Pico2 (RP2350)及び互換ボード専用です。
 - Super AKI-80、Tom's SBC(CP/M machine - Grant Searle)、68k-nanoで動作しました。
 - Pico2(電源3.3V)と Z80/MC68000ベースの SBC(電源5V)を直結しています。
-- ROMエミュレーションは27256 DIP-28ピンですが容量8kByte、Super AKI-80用ROM-BASIC。
+- ROMエミュレーションは27256 DIP-28ピンですが容量8kByte、Super AKI-80用ROM-BASIC
+  - 64K CP/M に対応 -> [64K CP/M ブランチ](https://github.com/kyo-ta04/Pico2ROMEmuBR/tree/SuperAKI80_CPM_64K_RAMEmu)
   - 32KByteに対応 -> [32KB ブランチ](https://github.com/kyo-ta04/Pico2ROMEmuBR/tree/32KB)
 - リセット出力(オープンコレクタ)、クロック出力 20/12/10MHz、UART-USB変換、電源供給(5V)機能あり。
 - Super AKI-80は最小限の部品＆改造なし、これ一つだけで動作させることができます。
@@ -17,10 +18,9 @@
 - KiCad 回路・基板データはこちら -> [Pico2ROMEmu_PCB](https://github.com/kyo-ta04/Pico2ROMEmu_PCB)
 - RP2350B Core Board(32KByte対応)はこちら -> [Pico2ROMEmuCB](https://github.com/kyo-ta04/Pico2ROMEmuCB)
 - ブランチ
+  - [64K CP/M](https://github.com/kyo-ta04/Pico2ROMEmuBR/tree/SuperAKI80_CPM_64K_RAMEmu) Super AKI-80 64K CP/M対応
   - [32KB](https://github.com/kyo-ta04/Pico2ROMEmuBR/tree/32KB) 32KByte 拡張、Pico2/RP2350A_V10 CoreBoard用
   - [68k-nano](https://github.com/kyo-ta04/Pico2ROMEmuBR/tree/68k-nano) MC68000 16bit、複数ROMイメージ対応
-  - [develop](https://github.com/kyo-ta04/Pico2ROMEmuBR/tree/develop) 開発用
-  - [test](https://github.com/kyo-ta04/Pico2ROMEmuBR/tree/test) PIOでsidesetを利用したタイミング確認用
   - [toms_sbc](https://github.com/kyo-ta04/Pico2ROMEmuBR/tree/toms_sbc) Tom's SBC用、Z80 CP/Mサポート
 - `rom_basic_const.c` などの ROM-BASIC 部分は [saki80basic](https://github.com/vintagechips/saki80basic) 由来です。
   - 元の[BASICサブセット](http://searle.x10host.com/cpm/index.html)は Grant Searle さんが作成したものであり、[Super AKI-80用に @vintagechip（電脳伝説）](https://vintagechips.wordpress.com/2025/04/24/saki80basic/)さんが移植・改良されています。
